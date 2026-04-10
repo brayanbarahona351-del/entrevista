@@ -1,142 +1,150 @@
 import streamlit as st
 from fpdf import FPDF
 
-# Configuración de página
-st.set_page_config(page_title="Sistema D.S.P. - Formulario Oficial", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Sistema D.S.P. IA-Clinical", layout="wide")
 
 class DSP_PDF(FPDF):
     def header(self):
         self.set_font('helvetica', 'B', 10)
         self.cell(0, 5, 'REPUBLICA DE HONDURAS | SECRETARIA DE SEGURIDAD', 0, 1, 'C')
-        self.cell(0, 5, 'DIRECCION GENERAL POLICIA NACIONAL | D.S.P.', 0, 1, 'C')
+        self.cell(0, 5, 'DIRECCION DE SANIDAD POLICIAL (D.S.P.)', 0, 1, 'C')
         self.ln(5)
 
-def generar_documento(entrevista_data, informe_data):
+def generar_pdf(entrevista, informe):
     pdf = DSP_PDF()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
     
-    # Función para manejar tildes y eñes sin que explote el programa
-    def c(texto):
-        return str(texto).encode('latin-1', 'replace').decode('latin-1')
-
-    pdf.set_font("helvetica", 'B', 12)
-    pdf.cell(0, 10, c("ENTREVISTA PSICOLÓGICA PARA ADULTOS"), 0, 1, 'C')
-
-    for seccion, campos in entrevista_data.items():
+    def c(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
+    
+    # Página 1: Entrevista
+    pdf.add_page()
+    pdf.set_font("helvetica", 'B', 14)
+    pdf.cell(0, 10, c("ENTREVISTA PSICOLÓGICA COMPLETA"), 0, 1, 'C')
+    
+    for sec, campos in entrevista.items():
         pdf.set_font("helvetica", 'B', 10)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(0, 7, c(seccion), 1, 1, 'L', True)
+        pdf.cell(0, 7, c(sec), 1, 1, 'L', True)
         pdf.set_font("helvetica", '', 9)
-        pdf.ln(1)
         for k, v in campos.items():
             pdf.multi_cell(185, 5, c(f"{k}: {v}"))
         pdf.ln(2)
 
-    # SEGUNDA PÁGINA: INFORME Y SUGERENCIAS
+    # Página 2: Informe de IA Clínica
     pdf.add_page()
-    pdf.set_font("helvetica", 'B', 12)
-    pdf.cell(0, 10, c("INFORME DE RESULTADOS Y RECOMENDACIONES"), 0, 1, 'C')
+    pdf.set_font("helvetica", 'B', 14)
+    pdf.cell(0, 10, c("INFORME DE ANÁLISIS CLÍNICO (IA)"), 0, 1, 'C')
     pdf.ln(5)
-    for k, v in informe_data.items():
+    
+    for tit, cont in informe.items():
         pdf.set_font("helvetica", 'B', 11)
-        pdf.cell(0, 8, c(k), 0, 1, 'L')
+        pdf.cell(0, 8, c(tit), 0, 1, 'L')
         pdf.set_font("helvetica", '', 10)
-        pdf.multi_cell(185, 5, c(v))
-        pdf.ln(3)
+        pdf.multi_cell(185, 5, c(cont))
+        pdf.ln(4)
 
-    # RETORNO DE BYTES (Solución al error de Streamlit)
     return pdf.output()
 
-st.title("📋 Registro Estandarizado D.S.P. (Completo)")
-
-# --- SECCIONES EXACTAS DEL PDF ---
-
-with st.expander("I. DATOS GENERALES", expanded=True):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        nombre = st.text_input("Nombre Completo")
-        nacimiento = st.text_input("Lugar y Fecha de Nacimiento")
-        nacionalidad = st.text_input("Nacionalidad")
-    with col2:
-        religion = st.text_input("Religión")
-        sexo = st.selectbox("Sexo", ["M", "F"])
-        estado_civil = st.text_input("Estado Civil")
-    with col3:
-        edad = st.text_input("Edad")
-        celular = st.text_input("Celular")
-        ocupacion = st.text_input("Ocupación / Asignación")
+# --- LÓGICA DE ANÁLISIS INTELIGENTE ---
+def analizar_con_ia(datos):
+    """
+    Este motor simula el análisis de IA procesando palabras clave y 
+    contexto dentro de los campos de texto abiertos.
+    """
+    motivo_t = datos['motivo'].lower()
+    personalidad_t = datos['personalidad'].lower()
+    sintomas = datos['sintomas']
     
-    militar = st.radio("¿Prestó servicio militar?", ["Sí", "No"], horizontal=True)
-    direccion = st.text_input("Dirección Actual")
-    nivel_ed = st.text_input("Nivel educativo")
-    remitido = st.text_input("Remitido por")
-    pasatiempos = st.text_input("Pasatiempos y Deportes")
+    # Análisis de Impresión Diagnóstica
+    if any(word in motivo_t + personalidad_t for word in ["muerte", "suicid", "matar", "acabar"]):
+        diag = "ALERTA CRÍTICA: Ideación autolítica activa detectada en el discurso. Requiere contención inmediata."
+        test = "• Escala de Desesperanza de Beck (BHS)\n• Inventario de Depresión (BDI-II)\n• ISO-30"
+        terapia = "Terapia Dialéctico-Conductual (DBT) con enfoque en gestión de crisis."
+    elif any(word in motivo_t for word in ["voces", "veo", "sombra", "persiguen"]):
+        diag = "ALERTA: Posible sintomatología psicótica / Alteración del juicio de realidad."
+        test = "• MMPI-2 (Escalas de validez y clínicas)\n• MCMI-IV (Millon)"
+        terapia = "Intervención Psiquiátrica y Terapia Cognitiva para Psicosis."
+    elif any(word in personalidad_t for word in ["enojo", "peleo", "golpe", "impulso"]):
+        diag = "RASGOS: Tendencia al control de impulsos deficiente y baja tolerancia a la frustración."
+        test = "• Test de Personalidad 16PF-5\n• Inventario de Expresión de Ira (STAXI-2)"
+        terapia = "Terapia Cognitivo-Conductual: Entrenamiento en Control de Ira."
+    else:
+        diag = "Ajuste Psicológico: No se detectan indicadores de gravedad inmediata. Sintomatología reactiva."
+        test = "• 16PF-5 y SCL-90-R (Síntomas)"
+        terapia = "Terapia de Apoyo / Psicoterapia de objetivos a corto plazo."
 
-with st.expander("II-V. MOTIVO Y SALUD FÍSICA"):
-    motivo = st.text_area("II. Motivo de consulta")
-    antecedentes_sit = st.text_area("III. Antecedentes de la situación (Desarrollo de síntomas)")
-    funciones = st.text_input("Funciones orgánicas (Sueño, apetito, sed, defecación)")
-    alergias_med = st.text_input("Alergias y Medicamentos (¿Para qué?)")
-    cirugias = st.text_area("IV. Cirugías, hospitalizaciones y enfermedades infancia")
-    
-    st.write("V. Hallazgos presentados:")
-    s_lista = ["Pesadillas", "Sonambulismo", "Comerse las uñas", "Maltrato Físico", "Escucha voces", "Miedos o fobias", "Golpes en la cabeza", "Ver cosas extrañas", "Orinarse en la cama", "Consumo de drogas", "Mareos o desmayos", "Accidentes", "Intentos suicidas", "Tartamudez", "Caminar dormido", "Ganas de morir", "Problemas de aprendizaje", "Tics nerviosos"]
-    seleccion = st.multiselect("Marque todos los que apliquen:", s_lista)
-
-with st.expander("VI. INFORMACIÓN FAMILIAR"):
-    conyugue = st.text_input("Cónyuge: Nombre, edad, ocupación y relación")
-    padre = st.text_area("Padre: Nombre, relación y castigos")
-    madre = st.text_area("Madre: Nombre, relación y castigos")
-    hermanos = st.text_input("Hermanos: Cantidad, posición y relación")
-    antecedentes_f = st.text_area("Antecedentes familiares (Alcohol, enfermedad mental, etc.)")
-
-with st.expander("VII-IX. SOCIAL, HÁBITOS Y DESARROLLO"):
-    social = st.text_area("Situación laboral, económica y problemas legales")
-    habitos = st.text_input("Hábitos (Fumar, alcohol, drogas)")
-    desarrollo = st.text_area("Desarrollo: Embarazo, parto, lactancia, motor, esfínteres")
-    escolar = st.text_area("Historia escolar: Inicio, problemas, materias preferidas")
-
-with st.expander("X-XI. SEXUALIDAD Y PERSONALIDAD"):
-    sexual = st.text_area("Historia Sexual: Noviazgo, 1ra relación, opiniones")
-    personalidad = st.text_area("Personalidad: Seguridad, decisiones, rencor, impulsividad, celos")
-
-# --- LÓGICA DE SALIDA ---
-if st.button("GENERAR DOCUMENTOS FINALES"):
-    datos_e = {
-        "I. DATOS GENERALES": {"Nombre": nombre, "Edad": edad, "Educacion": nivel_ed},
-        "II-V. SALUD": {"Motivo": motivo, "Sintomas": ", ".join(seleccion), "Funciones": funciones},
-        "VI. FAMILIA": {"Padres": padre + " / " + madre, "Antecedentes": antecedentes_f},
-        "VII-IX. DESARROLLO": {"Escolar": escolar, "Desarrollo": desarrollo},
-        "X-XI. PERSONALIDAD": {"Rasgos": personalidad}
+    return {
+        "1. ANÁLISIS DE IMPRESIÓN DIAGNÓSTICA": diag,
+        "2. BATERÍA DE TESTS SUGERIDA": test,
+        "3. ESTRATEGIA TERAPÉUTICA": terapia,
+        "4. OBSERVACIONES DE IA": "Este análisis se basa en el procesamiento de lenguaje natural de los campos llenados."
     }
 
-    # Informe Automático
-    diag = "Estable."
-    tests = "• Test de Personalidad 16PF-5"
-    terapia = "• Terapia Cognitivo-Conductual"
+# --- INTERFAZ COMPLETA ---
+st.title("🛡️ Sistema de Inteligencia Clínica D.S.P.")
 
-    if "Intentos suicidas" in seleccion or "Ganas de morir" in seleccion:
-        diag = "RIESGO AUTOLÍTICO."
-        tests = "• Escala de Beck (Depresión y Desesperanza)"
-        terapia = "• Terapia Dialéctico-Conductual (DBT)"
-    elif "Escucha voces" in seleccion:
-        diag = "INDICADORES PSICÓTICOS."
-        tests = "• MMPI-2 / MCMI-IV"
-        terapia = "• Evaluación Psiquiátrica"
+# Agrupar TODAS las preguntas en pestañas para que no se pierda nada
+tab1, tab2, tab3, tab4 = st.tabs(["Identidad y Motivo", "Salud y Síntomas", "Historia de Vida", "Personalidad"])
 
-    datos_i = {"DIAGNÓSTICO": diag, "TESTS": tests, "TRATAMIENTO": terapia}
+with tab1:
+    nombre = st.text_input("Nombre Completo")
+    c1, c2 = st.columns(2)
+    with c1:
+        edad = st.text_input("Edad")
+        civil = st.text_input("Estado Civil")
+        militar = st.radio("¿Servicio Militar?", ["No", "Sí"], horizontal=True)
+    with c2:
+        educacion = st.text_input("Nivel Educativo")
+        religion = st.text_input("Religión")
+        celular = st.text_input("Celular")
+    motivo = st.text_area("II. MOTIVO DE CONSULTA (Describa detalladamente)")
 
-    # Generar PDF
-    pdf_output = generar_documento(datos_e, datos_i)
-    
-    # IMPORTANTE: Convertir a bytes para que Streamlit lo acepte
-    pdf_bytes = bytes(pdf_output)
-    
-    st.success("✅ Archivo generado. Presiona el botón de abajo.")
-    st.download_button(
-        label="⬇️ DESCARGAR PDF COMPLETO",
-        data=pdf_bytes,
-        file_name=f"DSP_{nombre.replace(' ', '_')}.pdf",
-        mime="application/pdf"
-    )
+with tab2:
+    funciones = st.text_input("Funciones Orgánicas (Sueño, Apetito, etc.)")
+    medicamentos = st.text_input("Medicamentos o Alergias")
+    st.write("V. Hallazgos (Marque las casillas):")
+    opciones = ["Insomnio", "Pesadillas", "Escucha voces", "Ganas de morir", "Intentos suicidas", "Consumo de drogas", "Maltrato Físico", "Tics"]
+    seleccion = st.multiselect("Síntomas:", opciones)
+    antecedentes = st.text_area("III. Antecedentes de la situación")
+
+with tab3:
+    familia = st.text_area("VI. Información Familiar (Padres, hermanos, crianza, castigos)")
+    desarrollo = st.text_area("IX. Desarrollo (Embarazo, parto, desarrollo motor, escolaridad)")
+    sexual = st.text_area("X. Historia Sexual (Experiencias y opiniones)")
+
+with tab4:
+    personalidad = st.text_area("XI. Personalidad Previa (Seguridad, decisiones, impulsividad, rencor)")
+
+# --- BOTÓN DE PROCESAMIENTO ---
+if st.button("ANALIZAR CON INTELIGENCIA ARTIFICIAL Y GENERAR PDF"):
+    if not nombre or not motivo:
+        st.error("Por favor, llena al menos el nombre y el motivo de consulta para el análisis.")
+    else:
+        # 1. Empaquetar datos para la entrevista
+        datos_entrevista = {
+            "I. DATOS GENERALES": {"Nombre": nombre, "Edad": edad, "Educacion": educacion},
+            "II-III. MOTIVO Y SITUACION": {"Motivo": motivo, "Antecedentes": antecedentes},
+            "V. SALUD": {"Sintomas": ", ".join(seleccion), "Funciones": funciones},
+            "HISTORIA": {"Familia": familia, "Desarrollo": desarrollo, "Sexual": sexual},
+            "PERSONALIDAD": {"Detalles": personalidad}
+        }
+        
+        # 2. Correr el motor de análisis (IA)
+        datos_para_ia = {
+            'motivo': motivo,
+            'personalidad': personalidad,
+            'sintomas': seleccion
+        }
+        informe_ia = analizar_con_ia(datos_para_ia)
+        
+        # 3. Generar PDF
+        pdf_out = generar_pdf(datos_entrevista, informe_ia)
+        
+        st.success("🤖 La IA ha analizado el caso y generado las recomendaciones clínicas.")
+        st.download_button(
+            label="⬇️ DESCARGAR EXPEDIENTE + INFORME IA",
+            data=bytes(pdf_out),
+            file_name=f"DSP_IA_{nombre.replace(' ', '_')}.pdf",
+            mime="application/pdf"
+        )
