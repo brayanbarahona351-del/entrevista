@@ -1,128 +1,89 @@
 import streamlit as st
+from fpdf import FPDF
 from datetime import date
 
-# 1. Configuración y Estilos de Impresión
-st.set_page_config(page_title="Expediente Clínico D.S.P.", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Sistema Clínico D.S.P.", layout="wide")
 
-st.markdown("""
-    <style>
-    /* Estilo para la pantalla */
-    .main { background-color: #f0f2f6; }
-    
-    /* Estilo específico para IMPRESIÓN */
-    @media print {
-        .stButton, .stDownloadButton, footer, header, .stSidebar {
-            display: none !important;
-        }
-        .report-container {
-            border: none !important;
-            box-shadow: none !important;
-        }
-    }
-    
-    .report-container {
-        background-color: white;
-        padding: 30px;
-        border-radius: 5px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    .header-clinico { text-align: center; line-height: 1.2; margin-bottom: 20px; }
-    .seccion-titulo { 
-        background-color: #1f4e79; 
-        color: white; 
-        padding: 8px; 
-        margin-top: 15px;
-        font-weight: bold;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# --- FUNCIÓN PARA GENERAR PDF ---
+class PDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 10)
+        self.cell(0, 5, 'REPÚBLICA DE HONDURAS | SECRETARÍA DE SEGURIDAD', 0, 1, 'C')
+        self.cell(0, 5, 'DIRECCIÓN DE SANIDAD POLICIAL (D.S.P.)', 0, 1, 'C')
+        self.ln(10)
 
-# --- INICIO DEL CUERPO DE LA APP ---
-with st.container():
-    st.markdown('<div class="report-container">', unsafe_allow_html=True)
+def generar_pdf(datos):
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=10)
     
-    # Membrete Institucional [cite: 1-5]
-    st.markdown("""
-        <div class="header-clinico">
-            <h3 style='margin:0;'>REPÚBLICA DE HONDURAS</h3>
-            <h4 style='margin:0;'>SECRETARÍA DE SEGURIDAD | POLICÍA NACIONAL</h4>
-            <h5 style='margin:0;'>DIRECCIÓN DE SANIDAD POLICIAL (D.S.P.)</h5>
-            <p style='margin:0;'>DEPARTAMENTO DE PSICOLOGÍA</p>
-            <hr>
-            <h3 style='color: #1f4e79;'>ENTREVISTA PSICOLÓGICA PARA ADULTOS</h3>
-        </div>
-    """, unsafe_allow_html=True)
+    for seccion, contenido in datos.items():
+        pdf.set_fill_color(200, 220, 255)
+        pdf.cell(0, 8, f"{seccion}", 0, 1, 'L', 1)
+        pdf.ln(2)
+        for k, v in contenido.items():
+            pdf.multi_cell(0, 5, f"{k}: {v}")
+        pdf.ln(5)
+    
+    return pdf.output(dest='S').encode('latin-1')
 
-    # I. DATOS GENERALES [cite: 7, 8, 14, 16]
-    st.markdown('<div class="seccion-titulo">I. DATOS GENERALES</div>', unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
+# --- FORMULARIO DE ENTRADA ---
+st.title("📋 Entrevista Psicológica Estandarizada")
+
+# I. DATOS GENERALES [cite: 7-24]
+with st.expander("I. DATOS GENERALES", expanded=True):
+    col1, col2 = st.columns(2)
+    with col1:
         nombre = st.text_input("Nombre Completo [cite: 8]")
-        edad = st.number_input("Edad [cite: 14]", min_value=0)
-        sexo = st.selectbox("Sexo [cite: 12]", ["M", "F"])
-    with c2:
+        nacimiento = st.text_input("Lugar y Fecha de Nacimiento [cite: 9]")
+        nacionalidad = st.text_input("Nacionalidad [cite: 10]")
+        religion = st.text_input("Religión [cite: 11]")
+    with col2:
+        edad = st.number_input("Edad [cite: 14]", 18, 100)
+        estado_civil = st.text_input("Estado Civil [cite: 12]")
         ocupacion = st.text_input("Ocupación actual [cite: 16]")
-        militar = st.radio("¿Presto servicio militar? [cite: 18, 19]", ["Sí", "No"], horizontal=True)
-        fecha = st.date_input("Fecha de Aplicación [cite: 202]", date.today())
+        militar = st.radio("¿Prestó servicio militar? ", ["Sí", "No"])
 
-    # II. MOTIVO DE CONSULTA [cite: 25]
-    st.markdown('<div class="seccion-titulo">II. MOTIVO DE CONSULTA</div>', unsafe_allow_html=True)
-    motivo = st.text_area("Describa el motivo reportado")
-    prof_motivo = st.text_area("Observaciones y profundización clínica")
+# III. ANTECEDENTES Y FUNCIONES ORGÁNICAS [cite: 28-38]
+with st.expander("III. ANTECEDENTES CLÍNICOS"):
+    antecedentes_sit = st.text_area("Antecedentes de la situación [cite: 29]")
+    funciones = st.text_input("Funciones orgánicas (sueño, apetito, sed, defecación) [cite: 31]")
+    alergias = st.text_input("¿Padece alergias? [cite: 32]")
+    medicamentos = st.text_input("¿Toma medicamentos regularmente? [cite: 35]")
 
-    # V. SALUD FÍSICA (Cribado de síntomas) [cite: 57, 70]
-    st.markdown('<div class="seccion-titulo">V. SALUD FÍSICA Y RIESGOS</div>', unsafe_allow_html=True)
-    st.write("Seleccione los hallazgos identificados en la tabla de síntomas[cite: 70]:")
+# V. SALUD FÍSICA (TABLA DE SÍNTOMAS) 
+with st.expander("V. SALUD FÍSICA"):
+    sintomas = st.multiselect("Marque síntomas presentados ", 
+        ["Insomnio", "Intentos suicidas", "Escucha voces", "Ganas de morir", "Consumo de drogas", "Maltrato Físico", "Pesadillas", "Crisis de pánico"])
+
+# VI. INFORMACIÓN FAMILIAR 
+with st.expander("VI. INFORMACIÓN FAMILIAR"):
+    conyugue = st.text_input("Nombre del Cónyuge [cite: 73]")
+    relacion_padres = st.text_area("Tipo de relación con los padres [cite: 88, 96]")
+    alcoholismo_fam = st.radio("¿Antecedentes de alcoholismo en la familia? [cite: 119]", ["No", "Sí"])
+
+# XI. PERSONALIDAD PREVIA [cite: 191-199]
+with st.expander("XI. PERSONALIDAD PREVIA"):
+    seguridad = st.text_input("Seguridad en sí mismo [cite: 192]")
+    decisiones = st.text_input("Toma de decisiones [cite: 193]")
+    impulsividad = st.text_input("Actos impulsivos [cite: 197]")
+
+# --- PROCESAMIENTO Y DESCARGA ---
+if st.button("PREPARAR ARCHIVO PARA DESCARGA"):
+    dict_datos = {
+        "I. DATOS GENERALES": {"Nombre": nombre, "Edad": edad, "Ocupación": ocupacion},
+        "II. MOTIVO": {"Descripción": "Completado en entrevista"},
+        "III. ANTECEDENTES": {"Funciones": funciones, "Medicamentos": medicamentos},
+        "V. SÍNTOMAS": {"Detectados": ", ".join(sintomas)},
+        "XI. PERSONALIDAD": {"Seguridad": seguridad, "Decisiones": decisiones}
+    }
     
-    col_v1, col_v2, col_v3 = st.columns(3)
-    with col_v1:
-        s_insomnio = st.checkbox("Insomnio")
-        s_suicida = st.checkbox("Intentos suicidas")
-        s_voces = st.checkbox("Escucha voces")
-    with col_v2:
-        s_drogas = st.checkbox("Consumo de drogas")
-        s_morir = st.checkbox("Ganas de morir")
-        s_maltrato = st.checkbox("Maltrato Físico")
-    with col_v3:
-        s_aprendizaje = st.checkbox("Problemas de aprendizaje")
-        s_fobia = st.checkbox("Miedos o fobias")
-        s_panico = st.checkbox("Crisis de pánico")
-
-    prof_salud = st.text_area("Profundización sobre salud física y síntomas neurológicos")
-
-    # XI. PERSONALIDAD PREVIA [cite: 191, 192, 193]
-    st.markdown('<div class="seccion-titulo">XI. PERSONALIDAD PREVIA</div>', unsafe_allow_html=True)
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        seguridad = st.text_area("Seguridad en sí mismo [cite: 192]")
-        decisiones = st.text_area("Toma de decisiones [cite: 193]")
-    with col_p2:
-        impulsividad = st.text_area("Actos impulsivos [cite: 197]")
-        rencor = st.text_area("Rencoroso [cite: 196]")
-
-    # --- CIERRE DEL REPORTE ---
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("""
-        <table style="width:100%; border:none;">
-            <tr>
-                <td style="text-align:center; border:none;">__________________________<br>Firma del Paciente [cite: 203]</td>
-                <td style="text-align:center; border:none;">__________________________<br>Psicólogo Evaluador [cite: 201]</td>
-            </tr>
-        </table>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --- BOTÓN DE IMPRESIÓN ---
-st.sidebar.title("Opciones")
-if st.sidebar.button("🖨️ Preparar para Imprimir"):
-    st.sidebar.success("¡Listo! Ahora presiona 'Ctrl + P' en tu teclado.")
-    st.balloons()
-
-# --- INTERPRETACIÓN CLÍNICA (Solo visible en pantalla) ---
-with st.sidebar.expander("Sugerencias Automáticas"):
-    if s_suicida or s_morir:
-        st.error("Riesgo detectado. Sugerencia: Aplicar Escala de Beck e intervención inmediata.")
-    elif s_voces:
-        st.warning("Indicadores perceptivos. Sugerencia: Aplicar MMPI-2.")
-    else:
-        st.info("Paciente estable. Sugerencia: TCC o 16PF-5.")
+    pdf_bytes = generar_pdf(dict_datos)
+    
+    st.download_button(
+        label="⬇️ Descargar Entrevista en PDF",
+        data=pdf_bytes,
+        file_name=f"Entrevista_{nombre.replace(' ', '_')}.pdf",
+        mime="application/pdf"
+    )
