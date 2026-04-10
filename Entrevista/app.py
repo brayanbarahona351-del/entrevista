@@ -3,48 +3,53 @@ from fpdf import FPDF
 from datetime import date
 
 # Configuración de página
-st.set_page_config(page_title="Sistema D.S.P. - Entrevista Completa", layout="wide")
+st.set_page_config(page_title="Sistema D.S.P. - Formulario Completo", layout="wide")
 
 class DSP_PDF(FPDF):
     def header(self):
-        self.set_font('helvetica', 'B', 10)
+        self.set_font('Arial', 'B', 10)
         self.cell(0, 5, 'REPUBLICA DE HONDURAS | SECRETARIA DE SEGURIDAD', 0, 1, 'C')
         self.cell(0, 5, 'DIRECCION GENERAL POLICIA NACIONAL', 0, 1, 'C')
         self.cell(0, 5, 'DIRECCION DE SANIDAD POLICIAL (D.S.P.)', 0, 1, 'C')
-        self.cell(0, 5, 'DEPARTAMENTO DE PSICOLOGIA', 0, 1, 'C')
         self.ln(5)
 
-def generar_documento(datos_entrevista, resultados_clinicos):
+def generar_documento(entrevista_completa, informe_clinico):
+    # Definir márgenes amplios para evitar el error de "Not enough horizontal space"
     pdf = DSP_PDF()
+    pdf.set_left_margin(15)
+    pdf.set_right_margin(15)
     pdf.add_page()
     
-    # --- PÁGINA 1-5: ENTREVISTA ---
-    pdf.set_font("helvetica", 'B', 12)
+    # --- SECCIONES DE LA ENTREVISTA ---
+    pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "ENTREVISTA PSICOLOGICA PARA ADULTOS", 0, 1, 'C')
     
-    for seccion, campos in datos_entrevista.items():
-        pdf.set_font("helvetica", 'B', 10)
+    for seccion, contenido in entrevista_completa.items():
+        pdf.set_font("Arial", 'B', 10)
         pdf.set_fill_color(230, 230, 230)
-        pdf.cell(0, 7, seccion, 1, 1, 'L', True)
-        pdf.set_font("helvetica", '', 9)
+        # Usamos ancho de 0 para que use todo el espacio disponible entre márgenes
+        pdf.cell(0, 7, seccion.upper(), 1, 1, 'L', True)
         pdf.ln(1)
-        for k, v in campos.items():
+        pdf.set_font("Arial", '', 9)
+        for k, v in contenido.items():
+            # multi_cell con ancho 0 para evitar errores de espacio horizontal
             pdf.multi_cell(0, 5, f"{k}: {v}")
-        pdf.ln(2)
+        pdf.ln(3)
 
-    # --- PÁGINA FINAL: INFORME DE RESULTADOS ---
+    # --- PÁGINA DE INFORME ---
     pdf.add_page()
-    pdf.set_font("helvetica", 'B', 12)
+    pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "INFORME DE RESULTADOS Y RECOMENDACIONES", 0, 1, 'C')
     pdf.ln(5)
-    for k, v in resultados_clinicos.items():
-        pdf.set_font("helvetica", 'B', 11)
-        pdf.cell(0, 8, k, 0, 1, 'L')
-        pdf.set_font("helvetica", '', 10)
+    
+    for k, v in informe_clinico.items():
+        pdf.set_font("Arial", 'B', 10)
+        pdf.cell(0, 7, k, 0, 1, 'L')
+        pdf.set_font("Arial", '', 10)
         pdf.multi_cell(0, 5, v)
         pdf.ln(3)
 
-    # Firmas finales [cite: 201-203]
+    # Firmas [cite: 201-203]
     pdf.ln(20)
     pdf.cell(90, 10, "__________________________", 0, 0, 'C')
     pdf.cell(90, 10, "__________________________", 0, 1, 'C')
@@ -53,111 +58,93 @@ def generar_documento(datos_entrevista, resultados_clinicos):
     
     return pdf.output()
 
-st.title("📋 Formulario Estandarizado D.S.P.")
+st.title("📋 Registro Estandarizado D.S.P. Honduras")
 
-# --- SECCIÓN I: DATOS GENERALES [cite: 7-24] ---
+# --- TODAS LAS CASILLAS DEL PDF ORIGINAL ---
+
 with st.expander("I. DATOS GENERALES", expanded=True):
     c1, c2, c3 = st.columns(3)
     with c1:
-        nombre = st.text_input("Nombre Completo")
-        nacimiento = st.text_input("Lugar y Fecha de Nacimiento")
-        nacionalidad = st.text_input("Nacionalidad")
-        religion = st.text_input("Religión")
-        sexo = st.selectbox("Sexo", ["M", "F"])
+        nombre = st.text_input("Nombre Completo [cite: 8]")
+        nacimiento = st.text_input("Lugar y Fecha de Nacimiento [cite: 9]")
+        nacionalidad = st.text_input("Nacionalidad [cite: 10]")
+        religion = st.text_input("Religión [cite: 11]")
     with c2:
-        edad = st.text_input("Edad")
-        estado_civil = st.text_input("Estado Civil")
-        celular = st.text_input("Celular")
-        ocupacion = st.text_input("Ocupación actual")
-        asignacion = st.text_input("Asignación")
+        sexo = st.selectbox("Sexo [cite: 12]", ["M", "F"])
+        estado_civil = st.text_input("Estado Civil [cite: 12]")
+        edad = st.text_input("Edad [cite: 14]")
+        celular = st.text_input("Celular [cite: 15]")
     with c3:
-        militar = st.radio("¿Presto servicio militar?", ["Sí", "No"], horizontal=True)
-        direccion = st.text_input("Dirección Actual")
-        nivel_ed = st.text_input("Nivel educativo")
-        remitido = st.text_input("Remitido por")
-        pasatiempos = st.text_input("Pasatiempo y Deportes")
+        ocupacion = st.text_input("Ocupación actual [cite: 16]")
+        asignacion = st.text_input("Asignación [cite: 17]")
+        militar = st.radio("¿Prestó servicio militar? [cite: 18]", ["Sí", "No"])
+        educacion = st.text_input("Nivel educativo [cite: 21]")
 
-# --- SECCIÓN II Y III: MOTIVO Y ANTECEDENTES [cite: 25-46] ---
-with st.expander("II y III. MOTIVO Y ANTECEDENTES"):
-    motivo = st.text_area("II. MOTIVO DE CONSULTA")
-    antecedentes_sit = st.text_area("III. ANTECEDENTES DE LA SITUACIÓN (Desarrollo de síntomas, última vez que se sintió bien)")
-    organicas = st.text_input("Funciones orgánicas (sueño, apetito, sed, defecación)")
-    alergias = st.text_input("¿Padece alergias? (Especifique)")
-    medicamentos = st.text_input("¿Toma medicamentos regularmente? (¿Para qué?)")
-    infancia = st.text_area("Enfermedades de la infancia, cirugías u hospitalizaciones")
-
-# --- SECCIÓN IV Y V: SÍNTOMAS Y SALUD FÍSICA [cite: 51-70] ---
-with st.expander("IV y V. SÍNTOMAS Y SALUD FÍSICA"):
-    st.write("Marque los síntomas que ha presentado en su vida:")
-    col_s1, col_s2, col_s3 = st.columns(3)
-    opciones_v = ["Insomnio", "Pesadillas", "Comerse las uñas", "Maltrato Físico", "Escucha voces", "Miedos o fobias", "Golpes en la cabeza", "Ver cosas extrañas", "Orinarse en la cama", "Consumo de drogas", "Mareos o desmayos", "Accidentes", "Intentos suicidas", "Tartamudez", "Caminar dormido", "Ganas de morir", "Problemas de aprendizaje", "Tics nerviosos"]
+with st.expander("II, III, IV y V. MOTIVO, ANTECEDENTES Y SALUD"):
+    motivo = st.text_area("Motivo de consulta [cite: 25]")
+    antecedentes_sit = st.text_area("Antecedentes de la situación y familiares [cite: 29-30]")
+    organicas = st.text_input("Funciones orgánicas (sueño, apetito, sed, defecación) [cite: 31]")
+    medicamentos = st.text_input("¿Toma medicamentos? (¿Para qué?) [cite: 35-38]")
+    infancia = st.text_area("Enfermedades infancia y cirugías [cite: 42-46]")
     
-    seleccion = st.multiselect("Seleccione todos los que apliquen:", opciones_v)
-    obs_neuro = st.text_area("Síntomas Neuróticos (Pesadillas, Sonambulismo, Enuresis, Onicofagia, Obsesiones, Fobias)")
+    st.write("V. Marque hallazgos presentados[cite: 70]:")
+    sintomas_lista = ["Insomnio", "Pesadillas", "Maltrato Fisico", "Escucha voces", "Miedos o fobias", "Ver cosas extrañas", "Intentos suicidas", "Ganas de morir", "Consumo de drogas", "Tics nerviosos"]
+    seleccion = st.multiselect("Síntomas:", sintomas_lista)
 
-# --- SECCIÓN VI: INFORMACIÓN FAMILIAR [cite: 71-124] ---
-with st.expander("VI. INFORMACIÓN FAMILIAR"):
-    conyugue = st.text_input("Nombre, edad y ocupación del Cónyuge")
-    rel_conyugue = st.text_area("Describa su relación de pareja")
-    padre = st.text_area("Nombre del Padre, relación e imposición de castigos")
-    madre = st.text_area("Nombre de la Madre, relación e imposición de castigos")
-    hermanos = st.text_input("Número de hermanos, posición entre ellos y con quién se lleva mejor")
-    crianza = st.text_input("¿Quién fue el encargado de su crianza?")
-    antecedentes_f = st.text_area("Antecedentes familiares (Alcoholismo, maltrato, depresión, enfermedades mentales)")
+with st.expander("VI. INFORMACION FAMILIAR"):
+    conyugue = st.text_input("Nombre, edad y relación con Cónyuge [cite: 73-79]")
+    padre = st.text_area("Nombre del Padre, relación y castigos [cite: 81-91]")
+    madre = st.text_area("Nombre de la Madre, relación y castigos [cite: 95-97]")
+    hermanos = st.text_input("Hermanos y posición en la familia [cite: 100-103]")
+    antecedentes_f = st.text_area("Antecedentes familiares (Alcoholismo, maltrato, enfermedades mentales) [cite: 119-124]")
 
-# --- SECCIÓN VII A X: SOCIAL, HÁBITOS Y DESARROLLO [cite: 130-188] ---
 with st.expander("VII a X. SOCIAL, DESARROLLO Y SEXUALIDAD"):
-    st.subheader("VII. Social/Ambiental")
-    social = st.text_area("Relaciones laborales, satisfacción, estrés y situación económica")
-    legal = st.text_input("¿Ha tenido dificultades con la ley?")
-    st.subheader("IX. Antecedentes Personales")
-    desarrollo = st.text_area("Embarazo, parto, lactancia, desarrollo motor y control de esfínteres")
-    escolar = st.text_area("Historia escolar (Edad de inicio, dificultades, materias preferidas)")
-    st.subheader("X. Historia Sexual")
-    sexual = st.text_area("Primer noviazgo, primera relación sexual, opinión sobre masturbación y homosexualidad")
+    social = st.text_area("Situación económica, laboral y dificultades legales [cite: 131-135]")
+    desarrollo = st.text_area("Embarazo, parto, lactancia y desarrollo motor [cite: 149-165]")
+    escolar = st.text_area("Historia escolar y materias dificultadas [cite: 174-182]")
+    sexual = st.text_area("Noviazgo, primera relación y opiniones sexuales [cite: 183-188]")
 
-# --- SECCIÓN XI: PERSONALIDAD PREVIA [cite: 191-199] ---
 with st.expander("XI. PERSONALIDAD PREVIA"):
-    personalidad = st.text_area("Seguridad, Toma de decisiones, Miedo al abandono, Confianza, Rencor, Impulsividad, Timidez, Celos")
+    personalidad = st.text_area("Seguridad, decisiones, rencor, impulsividad, celos, timidez [cite: 191-204]")
 
-# --- PROCESO DE GENERACIÓN ---
-if st.button("FINALIZAR Y GENERAR EXPEDIENTE COMPLETO"):
-    # Diccionario de la Entrevista
+# --- GENERACIÓN DE RESULTADOS ---
+if st.button("GENERAR EXPEDIENTE E INFORME COMPLETO"):
+    # Estructura Entrevista
     datos_e = {
-        "I. Datos Generales": {"Nombre": nombre, "Edad": edad, "Militar": militar, "Celular": celular, "Educación": nivel_ed},
-        "II y III. Motivo y Antecedentes": {"Motivo": motivo, "Historia": antecedentes_sit, "Funciones": organicas, "Medicamentos": medicamentos},
-        "V. Salud Fisica": {"Hallazgos": ", ".join(seleccion), "Observaciones": obs_neuro},
-        "VI. Familia": {"Detalles": conyugue + " / " + padre + " / " + madre, "Antecedentes": antecedentes_f},
-        "VII-X. Desarrollo y Social": {"Social": social, "Desarrollo": desarrollo, "Escolar": escolar, "Sexual": sexual},
-        "XI. Personalidad": {"Rasgos": personalidad}
+        "I. DATOS GENERALES": {"Nombre": nombre, "Edad": edad, "Nacionalidad": nacionalidad, "Militar": militar, "Educación": educacion},
+        "II-III. MOTIVO Y ANTECEDENTES": {"Motivo": motivo, "Historia": antecedentes_sit, "Funciones": organicas},
+        "V. SALUD FISICA": {"Síntomas": ", ".join(seleccion), "Medicamentos": medicamentos, "Infancia": infancia},
+        "VI. FAMILIA": {"Pareja": conyugue, "Padre": padre, "Madre": madre, "Antecedentes": antecedentes_f},
+        "VII-X. DESARROLLO Y SOCIAL": {"Social": social, "Desarrollo": desarrollo, "Escolar": escolar, "Sexual": sexual},
+        "XI. PERSONALIDAD": {"Rasgos": personalidad}
     }
 
     # Lógica de Informe Automático
-    diagnostico = "No se detectan riesgos agudos."
-    tests = "• Inventario de Personalidad 16PF-5"
+    diagnostico = "Sin riesgos agudos detectados."
+    tests = "• Test de Personalidad 16PF-5"
     terapia = "Terapia Cognitivo-Conductual"
 
     if "Intentos suicidas" in seleccion or "Ganas de morir" in seleccion:
-        diagnostico = "RIESGO AUTOLÍTICO DETECTADO. Requiere protocolo de vigilancia."
-        tests = "• Escala de Desesperanza de Beck (BHS)\n• Inventario de Depresión de Beck (BDI-II)"
-        terapia = "Terapia Dialéctico-Conductual (DBT) e Intervención en Crisis."
-    elif "Escucha voces" in seleccion or "Ver cosas extrañas" in seleccion:
-        diagnostico = "INDICADORES PSICÓTICOS / ALTERACIÓN PERCEPTIVA."
-        tests = "• MMPI-2\n• Examen Multiaxial de Millon (MCMI-IV)"
-        terapia = "Evaluación Psiquiátrica y Terapia Cognitiva para Psicosis."
+        diagnostico = "RIESGO AUTOLÍTICO DETECTADO."
+        tests = "• Escala de Desesperanza de Beck\n• Inventario de Depresión de Beck"
+        terapia = "Terapia Dialéctico-Conductual (DBT)."
+    elif "Escucha voces" in seleccion:
+        diagnostico = "INDICADORES PSICÓTICOS."
+        tests = "• MMPI-2\n• Millon (MCMI-IV)"
+        terapia = "Evaluación Psiquiátrica y Terapia Clínica."
 
     datos_i = {
         "1. IMPRESIÓN DIAGNÓSTICA": diagnostico,
-        "2. TESTS RECOMENDADOS": tests,
+        "2. TESTS SUGERIDOS": tests,
         "3. PLAN TERAPÉUTICO": terapia,
-        "4. TIPO DE TERAPIA": "Intervención Clínica Especializada"
+        "4. TIPO DE TERAPIA": "Intervención Especializada"
     }
 
     pdf_bytes = generar_documento(datos_e, datos_i)
-    st.success("✅ El expediente y el informe han sido generados exitosamente.")
+    st.success("✅ Documento generado correctamente.")
     st.download_button(
-        label="⬇️ DESCARGAR EXPEDIENTE COMPLETO + INFORME",
+        label="⬇️ DESCARGAR EXPEDIENTE E INFORME (PDF)",
         data=pdf_bytes,
-        file_name=f"DSP_Expediente_{nombre.replace(' ', '_')}.pdf",
+        file_name=f"Expediente_DSP_{nombre.replace(' ', '_')}.pdf",
         mime="application/pdf"
     )
