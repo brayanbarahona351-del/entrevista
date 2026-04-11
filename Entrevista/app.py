@@ -2,7 +2,7 @@ import streamlit as st
 from fpdf import FPDF
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Sistema IA D.S.P. - Honduras", layout="wide")
+st.set_page_config(page_title="IA Clínica D.S.P. - Descarga de Tests", layout="wide")
 
 class DSP_PDF(FPDF):
     def header(self):
@@ -11,114 +11,86 @@ class DSP_PDF(FPDF):
         self.cell(0, 5, 'DIRECCION DE SANIDAD POLICIAL (D.S.P.)', 0, 1, 'C')
         self.ln(5)
 
-def generar_pdf(entrevista, informe):
+def generar_pdf_ia(entrevista, informe_ia):
     pdf = DSP_PDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     def c(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
     
     pdf.add_page()
     pdf.set_font("helvetica", 'B', 14)
-    pdf.cell(0, 10, c("ENTREVISTA PSICOLOGICA Y RESULTADOS IA"), 0, 1, 'C')
+    pdf.cell(0, 10, c("INFORME CLÍNICO Y RECOMENDACIÓN DE TESTS"), 0, 1, 'C')
     
     for sec, campos in entrevista.items():
         pdf.set_font("helvetica", 'B', 10)
-        pdf.set_fill_color(230, 230, 230)
-        pdf.cell(0, 7, c(sec), 1, 1, 'L', True)
+        pdf.set_fill_color(235, 235, 235)
+        pdf.cell(0, 8, c(sec), 1, 1, 'L', True)
         pdf.set_font("helvetica", '', 9)
         for k, v in campos.items():
             pdf.multi_cell(185, 5, c(f"{k}: {v}"))
         pdf.ln(2)
 
-    pdf.add_page()
-    pdf.set_font("helvetica", 'B', 14)
-    pdf.cell(0, 10, c("INFORME CLINICO DE IA Y BATERIA RECOMENDADA"), 0, 1, 'C')
-    pdf.ln(5)
-    for tit, cont in informe.items():
-        pdf.set_font("helvetica", 'B', 11)
-        pdf.cell(0, 8, c(tit), 0, 1, 'L')
-        pdf.set_font("helvetica", '', 10)
-        pdf.multi_cell(185, 5, c(cont))
-        pdf.ln(3)
     return pdf.output()
 
-# --- MOTOR DE IA CON TUS ENLACES ---
-def motor_ia_dsp(motivo, personalidad, sintomas):
-    texto_analizar = (motivo + " " + personalidad).lower()
-    
-    # Tus enlaces de Google Drive
-    folder_psicometria = "https://drive.google.com/drive/folders/1lrH7AKPKXOVeFkcc_EdO03E0Ar5k4wbv"
-    folder_proyectivos = "https://drive.google.com/drive/folders/1yji6O5YIcYOjW1IG0fIhp4MJZgrcToys"
+# --- BASE DE DATOS DE IDs DE DESCARGA (Debes obtener estos IDs de tu Drive) ---
+# Para obtener el ID: Clic derecho en el archivo en Drive -> Compartir -> Copiar enlace. 
+# El ID es el código largo entre /d/ y /view.
+TESTS_DATABASE = {
+    "16PF-5": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_16PF",
+    "MMPI-2": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_MMPI2",
+    "BARSIT": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_BARSIT",
+    "HTP": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_HTP",
+    "Persona Bajo la Lluvia": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_PBLL"
+}
 
-    # Lógica de recomendación
-    tests = []
-    diag = "Paciente orientado en tiempo y espacio. Discurso coherente."
+def motor_ia_recomendador(motivo, sintomas):
+    texto = motivo.lower()
+    recomendaciones = []
     
-    # Análisis por palabras clave
-    if any(x in texto_analizar for x in ["triste", "morir", "suicid", "lloro", "solo"]):
-        diag = "INDICADORES DEPRESIVOS / RIESGO AUTOLITICO: Se observa un discurso con carga afectiva negativa y desesperanza."
-        tests.append(f"Pruebas de Personalidad Profunda (MMPI-2/16PF): {folder_psicometria}")
+    if any(x in texto for x in ["morir", "suicid", "triste"]):
+        recomendaciones.append("MMPI-2")
+    if any(x in texto for x in ["ira", "agresivo", "impulso"]):
+        recomendaciones.append("16PF-5")
+    if "Escucha voces" in sintomas or "Ver cosas extrañas" in sintomas:
+        recomendaciones.append("HTP")
+        recomendaciones.append("Persona Bajo la Lluvia")
     
-    if any(x in texto_analizar for x in ["voces", "sombras", "paranoid", "persiguen"]):
-        diag = "INDICADORES PSICOTICOS: El relato sugiere alteraciones en la percepcion de la realidad."
-        tests.append(f"Bateria Proyectiva (HTP / Figura Humana): {folder_proyectivos}")
-    
-    if any(x in texto_analizar for x in ["enojo", "golpe", "ira", "peleo", "impulsivo"]):
-        diag = "CONTROL DE IMPULSOS: Rasgos de personalidad con tendencia a la agresividad reactiva."
-        tests.append(f"Test de Personalidad (16PF / IPV para policias): {folder_psicometria}")
-
-    if not tests:
-        diag = "AJUSTE PSICOLOGICO NORMAL: No se detectan indicadores de psicopatologia aguda."
-        tests.append(f"Evaluacion de Rutina (Barsit / 16PF): {folder_psicometria}")
-
-    return {
-        "IMPRESION DIAGNOSTICA (ANALISIS IA)": diag,
-        "BATERIA DE TESTS RECOMENDADA (TUS ENLACES)": "\n".join(tests),
-        "PLAN TERAPEUTICO SUGERIDO": "Terapia Cognitivo-Conductual y seguimiento por el Depto. de Psicologia."
-    }
+    if not recomendaciones:
+        recomendaciones.append("BARSIT")
+        
+    return recomendaciones
 
 # --- INTERFAZ ---
-st.title("🧠 Asistente Clinico IA - Sanidad Policial")
+st.title("🛡️ Asistente D.S.P. con Descarga de Protocolos")
 
-with st.form("formulario_dsp"):
-    st.subheader("I. Datos Generales")
-    nombre = st.text_input("Nombre del Evaluado")
-    c1, c2 = st.columns(2)
-    edad = c1.text_input("Edad")
-    militar = c2.selectbox("¿Servicio Militar?", ["No", "Si"])
-    
-    st.subheader("II. Motivo de Consulta")
-    motivo_input = st.text_area("Describa el motivo detalladamente (La IA analizara este texto)")
-    
-    st.subheader("V. Tabla de Sintomas")
-    s_lista = ["Ganas de morir", "Escucha voces", "Insomnio", "Consumo drogas", "Agresividad"]
-    seleccion = st.multiselect("Sintomas detectados:", s_lista)
-    
-    st.subheader("XI. Rasgos de Personalidad")
-    perso_input = st.text_area("Describa rasgos observados (Seguridad, impulsividad, etc.)")
-    
-    # El resto de campos (Familia, Desarrollo, etc.) se omiten aqui por brevedad pero deben ir
-    submitted = st.form_submit_button("Analizar Caso y Generar PDF")
+with st.sidebar:
+    st.header("Configuración de Archivos")
+    st.info("Para que la descarga funcione, asegúrate de que los archivos en tu Drive estén configurados como 'Cualquier persona con el enlace puede leer'.")
 
-if submitted:
-    if nombre and motivo_input:
-        # Analizar con el "Cerebro"
-        resultados_ia = motor_ia_dsp(motivo_input, perso_input, seleccion)
+nombre = st.text_input("Nombre del Evaluado")
+motivo = st.text_area("Motivo de consulta (Análisis de IA)")
+sintomas = st.multiselect("Síntomas:", ["Ganas de morir", "Escucha voces", "Ansiedad", "Agresividad"])
+
+if st.button("ANALIZAR Y GENERAR RECOMENDACIONES"):
+    if nombre and motivo:
+        tests_sugeridos = motor_ia_recomendador(motivo, sintomas)
         
-        # Estructura Entrevista
-        entrevista = {
-            "DATOS GENERALES": {"Nombre": nombre, "Edad": edad, "Militar": militar},
-            "MOTIVO Y PERSONALIDAD": {"Motivo": motivo_input, "Rasgos": perso_input},
-            "SINTOMAS": {"Marcados": ", ".join(seleccion)}
-        }
+        st.subheader("🤖 Análisis de la IA:")
+        st.write(f"Basado en el motivo de consulta, se recomienda aplicar los siguientes protocolos disponibles en tu Drive:")
         
-        pdf_bytes = generar_pdf(entrevista, resultados_ia)
+        # Generar botones de descarga dinámicos
+        cols = st.columns(len(tests_sugeridos))
+        for i, test in enumerate(tests_sugeridos):
+            with cols[i]:
+                st.markdown(f"**{test}**")
+                # Botón que redirige a la descarga directa
+                st.link_button(f"Descargar {test}", TESTS_DATABASE.get(test, "#"))
+
+        # Generar el PDF del informe
+        datos_e = {"DATOS": {"Nombre": nombre}, "ANALISIS": {"Motivo": motivo}}
+        informe_ia = {"RECOMENDACION": ", ".join(tests_sugeridos)}
+        pdf_out = generar_pdf_ia(datos_e, informe_ia)
         
-        st.success("✅ Analisis completado. La IA ha vinculado tus carpetas de Drive segun el caso.")
-        st.download_button(
-            label="⬇️ Descargar Expediente con Enlaces de Tests",
-            data=bytes(pdf_bytes),
-            file_name=f"Informe_IA_{nombre}.pdf",
-            mime="application/pdf"
-        )
+        st.divider()
+        st.download_button("⬇️ Descargar Informe de Entrevista (PDF)", data=bytes(pdf_out), file_name=f"Informe_{nombre}.pdf")
     else:
-        st.warning("Por favor rellena el nombre y el motivo para que la IA pueda trabajar.")
+        st.error("Por favor rellene los campos obligatorios.")
