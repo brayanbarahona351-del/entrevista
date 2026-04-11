@@ -1,84 +1,92 @@
 import streamlit as st
 import pandas as pd
+import os
+import io
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-import io
-import os
 
-# --- FUNCIÓN PARA GENERAR EL WORD ---
-def generar_word(datos_entrevista, informe_ia):
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="D.S.P. Word System", layout="wide")
+
+# Inicializar variables para evitar NameError
+nombre = ""
+motivo = ""
+identidad = ""
+edad = ""
+sintomas = []
+familia = ""
+desarrollo = ""
+personalidad = ""
+
+# --- FUNCIONES ---
+def generar_word(datos, informe_ia):
     doc = Document()
+    doc.add_heading('DIRECCIÓN DE SANIDAD POLICIAL - HONDURAS', 0)
+    for sec, campos in datos.items():
+        doc.add_heading(sec, level=1)
+        for k, v in campos.items():
+            doc.add_paragraph(f"{k}: {v}")
     
-    # Encabezado Oficial
-    header = doc.sections[0].header
-    p = header.paragraphs[0]
-    p.text = "REPÚBLICA DE HONDURAS | SECRETARÍA DE SEGURIDAD\nDIRECCIÓN DE SANIDAD POLICIAL (D.S.P.)"
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    doc.add_heading('EXPEDIENTE PSICOLÓGICO CLÍNICO', 0)
-
-    # Llenado de secciones
-    for seccion, campos in datos_entrevista.items():
-        doc.add_heading(seccion, level=1)
-        table = doc.add_table(rows=0, cols=2)
-        table.style = 'Table Grid'
-        for clave, valor in campos.items():
-            row_cells = table.add_row().cells
-            row_cells[0].text = str(clave)
-            row_cells[1].text = str(valor)
-            # Formato de fuente
-            for cell in row_cells:
-                for paragraph in cell.paragraphs:
-                    for run in paragraph.runs:
-                        run.font.size = Pt(10)
-
-    # Sección de IA
-    doc.add_page_break()
-    doc.add_heading('INFORME DE ANÁLISIS E INTERPRETACIÓN (IA)', level=1)
+    doc.add_heading('RECOMENDACIONES IA', level=1)
     for k, v in informe_ia.items():
-        doc.add_heading(k, level=2)
-        doc.add_paragraph(v)
+        doc.add_paragraph(f"{k}: {v}")
 
-    # Espacio para firmas
-    doc.add_paragraph("\n\n\n__________________________\nFirma y Sello del Psicólogo")
-
-    # Guardar en memoria para descarga
     buffer = io.BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# --- INTERFAZ DE STREAMLIT (Lógica de Base de Datos Excel) ---
-st.title("🛡️ Sistema D.S.P. - Formato Word (.docx)")
+# --- INTERFAZ ---
+st.title("📋 Expediente Clínico D.S.P. en Word")
 
-# (Aquí va el resto de tu código de pestañas y base de datos Excel...)
+# Usamos columnas o pestañas, pero definimos las variables claramente
+tabs = st.tabs(["I. Generales", "II-V. Salud", "VI-IX. Historia", "X-XI. Personalidad"])
 
-# --- BOTÓN DE FINALIZACIÓN ---
-if st.button("📝 FINALIZAR Y GENERAR EXPEDIENTE EN WORD"):
-    if nombre and motivo:
-        # 1. Simular análisis de IA
+with tabs[0]:
+    nombre = st.text_input("Nombre Completo", key="nom")
+    identidad = st.text_input("Identidad", key="id")
+    edad = st.text_input("Edad", key="ed")
+
+with tabs[1]:
+    motivo = st.text_area("Motivo de consulta", key="mot")
+    sintomas = st.multiselect("Síntomas:", ["Insomnio", "Ganas de morir", "Agresividad"], key="sin")
+
+with tabs[2]:
+    familia = st.text_area("Historia Familiar", key="fam")
+    desarrollo = st.text_area("Desarrollo Infantil", key="des")
+
+with tabs[3]:
+    personalidad = st.text_area("Rasgos de Personalidad", key="per")
+
+st.divider()
+
+# EL BOTÓN AHORA SÍ RECONOCE LAS VARIABLES
+if st.button("📝 GENERAR EXPEDIENTE WORD"):
+    if nombre and motivo: # Aquí ya no habrá NameError
+        # 1. Datos para el documento
+        datos_doc = {
+            "I. DATOS GENERALES": {"Nombre": nombre, "ID": identidad, "Edad": edad},
+            "II. CLÍNICA": {"Motivo": motivo, "Síntomas": ", ".join(sintomas)},
+            "III. HISTORIA": {"Familia": familia, "Desarrollo": desarrollo},
+            "IV. PERSONALIDAD": {"Rasgos": personalidad}
+        }
+        
+        # 2. Análisis IA (Simple)
         res_ia = {
-            "Diagnóstico Sugerido": "Análisis preliminar de rasgos detectados.",
-            "Batería Recomendada": "Aplicar pruebas según manuales en Drive."
+            "Diagnóstico": "Análisis preliminar generado.",
+            "Acción": "Revisar carpetas de Drive de Psicometría."
         }
         
-        # 2. Organizar datos
-        datos_completos = {
-            "DATOS GENERALES": {"Nombre": nombre, "Edad": edad, "Identidad": identidad},
-            "MOTIVO Y SALUD": {"Motivo": motivo, "Síntomas": ", ".join(sintomas)},
-            "HISTORIA": {"Familia": familia, "Desarrollo": desarrollo},
-            "PERSONALIDAD": {"Rasgos": personalidad}
-        }
+        # 3. Generar y Descargar
+        word_data = generar_word(datos_doc, res_ia)
         
-        # 3. Generar Word
-        word_file = generar_word(datos_completos, res_ia)
-        
-        st.success("✅ Documento de Word generado correctamente.")
-        
+        st.success("✅ Documento Word creado.")
         st.download_button(
-            label="⬇️ Descargar Expediente en Word",
-            data=word_file,
-            file_name=f"Expediente_{nombre.replace(' ', '_')}.docx",
+            label="⬇️ Descargar Word",
+            data=word_data,
+            file_name=f"Expediente_{nombre}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
+    else:
+        st.warning("El Nombre y el Motivo son obligatorios para generar el documento.")
