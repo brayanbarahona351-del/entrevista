@@ -5,90 +5,120 @@ import io
 from docx import Document
 from datetime import datetime, date, time
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="D.S.P. Honduras - Visión Completa", layout="wide")
+# --- 1. CONFIGURACIÓN ---
+st.set_page_config(page_title="D.S.P. Honduras - Sistema Seguro", layout="wide")
+DB_FILE = "base_datos_dsp_v3.xlsx"
 
-# Forzamos que el archivo de base de datos sea nuevo si el anterior da problemas
-DB_FILE = "base_datos_dsp_v2.xlsx"
-
-# Lista maestra de campos oficiales
+# Definición de todos los campos del protocolo de 6 páginas
 CAMPOS = [
-    "Nombre", "Identidad", "Edad", "Lugar_Nacimiento", "Estado_Civil", "Religion", 
-    "Ocupacion", "Grado_Militar", "Antigüedad", "Motivo_Consulta", "Sintomas", 
-    "Enfermedades_Previas", "Operaciones", "Medicamentos", "Funciones_Organicas",
-    "Historia_Familiar", "Desarrollo_Infantil", "Historia_Escolar", 
-    "Historia_Sexual", "Examen_Mental", "Personalidad_Previa", 
-    "Seguimiento", "Proxima_Cita"
+    "Nombre", "Identidad", "Edad", "Rango_Militar", "Antigüedad", 
+    "Motivo_Consulta", "Sintomas", "Enfermedades", "Operaciones", 
+    "Medicamentos", "Funciones_Org", "Historia_Familiar", 
+    "Historia_Escolar", "Historia_Sexual", "Examen_Mental", 
+    "Personalidad_Previa", "Seguimiento", "Proxima_Cita"
 ]
 
 # --- 2. FUNCIONES DE DATOS ---
-def cargar_datos():
+def cargar_db():
     if not os.path.exists(DB_FILE):
         return pd.DataFrame(columns=CAMPOS)
     try:
         df = pd.read_excel(DB_FILE)
-        df = df.astype(str).replace('nan', '')
-        # Si faltan columnas por versiones viejas, las agregamos aquí
-        for c in CAMPOS:
-            if c not in df.columns:
-                df[c] = ""
-        return df
+        return df.astype(str).replace('nan', '')
     except:
         return pd.DataFrame(columns=CAMPOS)
 
-def guardar_datos(datos_dict):
-    df = cargar_datos()
-    # Convertir todo a string para evitar errores de visualización
-    nuevo_registro = {k: str(v) for k, v in datos_dict.items()}
-    
-    if not df.empty and nuevo_registro["Nombre"] in df["Nombre"].values:
-        df = df[df["Nombre"] != nuevo_registro["Nombre"]]
-    
-    df = pd.concat([df, pd.DataFrame([nuevo_registro])], ignore_index=True)
+def guardar_db(datos):
+    df = cargar_db()
+    if not df.empty and datos["Nombre"] in df["Nombre"].values:
+        df = df[df["Nombre"] != datos["Nombre"]]
+    df = pd.concat([df, pd.DataFrame([datos])], ignore_index=True)
     df.to_excel(DB_FILE, index=False)
 
 # --- 3. MOTOR DE IA ---
-def analizar_ia(d):
-    texto_total = f"{d['Motivo_Consulta']} {d['Sintomas']} {d['Examen_Mental']} {d['Personalidad_Previa']}".lower()
+def analizar_caso(d):
+    texto = f"{d['Motivo_Consulta']} {d['Sintomas']} {d['Examen_Mental']}".lower()
+    drive = "https://drive.google.com/drive/folders/1lrH7AKPKXOVeFkcc_EdO03E0Ar5k4wbv"
     
-    # Enlaces oficiales de tus recursos
-    p_drive = "https://drive.google.com/drive/folders/1lrH7AKPKXOVeFkcc_EdO03E0Ar5k4wbv"
+    res = {"diag": "Perfil Adaptativo", "tests": f"Batería Básica: {drive}", "plan": "Monitoreo"}
     
-    res = {"diag": "Estable", "tests": f"16PF: {p_drive}", "plan": "Seguimiento preventivo."}
-
-    if any(x in texto_total for x in ["morir", "suicid", "triste", "solo"]):
-        res = {"diag": "RIESGO DEPRESIVO/SUICIDA", "tests": f"MMPI-2 y Beck: {p_drive}", "plan": "Intervención en crisis y TCC."}
-    elif any(x in texto_total for x in ["ira", "impulso", "pelea", "agresivo"]):
-        res = {"diag": "CONTROL DE IMPULSOS", "tests": f"IPV y 16PF: {p_drive}", "plan": "Manejo de ira."}
-    
+    if any(x in texto for x in ["morir", "suicid", "solo"]):
+        res = {"diag": "RIESGO DEPRESIVO", "tests": f"MMPI-2 / Beck: {drive}", "plan": "Intervención Urgente"}
+    elif any(x in texto for x in ["ira", "golpe", "pelea"]):
+        res = {"diag": "IMPULSIVIDAD", "tests": f"IPV / 16PF: {drive}", "plan": "Control de Impulsos"}
     return res
 
-# --- 4. INTERFAZ VISUAL ---
+# --- 4. INTERFAZ ---
 st.title("🛡️ Sistema de Gestión Psicológica D.S.P.")
-st.markdown("---")
+db = cargar_db()
 
-df_actual = cargar_datos()
-
-# Sidebar para navegación
 with st.sidebar:
     st.header("📂 Expedientes")
-    paciente_sel = st.selectbox("Buscar por Nombre:", ["NUEVO REGISTRO"] + df_actual["Nombre"].tolist())
-    p = df_actual[df_actual["Nombre"] == paciente_sel].iloc[0].to_dict() if paciente_sel != "NUEVO REGISTRO" else {c: "" for c in CAMPOS}
-    
-    if st.button("♻️ Limpiar Pantalla"):
-        st.rerun()
+    sel = st.selectbox("Buscar:", ["NUEVO REGISTRO"] + db["Nombre"].tolist())
+    # Si es nuevo, inicializa todo vacío. Si existe, carga los datos.
+    p = db[db["Nombre"] == sel].iloc[0].to_dict() if sel != "NUEVO REGISTRO" else {c: "" for c in CAMPOS}
 
-# Pestañas Principales (Si no ves alguna, revisa el zoom del navegador)
-tabs = st.tabs(["📋 Datos", "🩺 Clínica", "📖 Historia", "🧠 Examen y Personalidad", "📅 Citas"])
+tabs = st.tabs(["I. Datos", "II. Clínica", "III. Historias", "IV. Examen/IA"])
 
 with tabs[0]:
-    st.subheader("Información General")
     c1, c2 = st.columns(2)
-    nombre = c1.text_input("Nombre", value=p.get("Nombre", ""))
-    identidad = c2.text_input("ID", value=p.get("Identidad", ""))
-    grado = c1.text_input("Grado Militar", value=p.get("Grado_Militar", ""))
-    antigüedad = c2.text_input("Antigüedad", value=p.get("Antigüedad", ""))
+    nombre = c1.text_input("Nombre Completo", value=p["Nombre"])
+    identidad = c2.text_input("Identidad", value=p["Identidad"])
+    rango = c1.text_input("Rango Militar", value=p["Rango_Militar"])
+    edad = c2.text_input("Edad", value=p["Edad"])
 
 with tabs[1]:
-    st.subheader("Evaluación Clínica")
-    motivo = st.text_area("Motivo de Consulta", value=p.
+    motivo = st.text_area("Motivo de Consulta", value=p["Motivo_Consulta"])
+    sintomas = st.text_area("Síntomas y Hallazgos", value=p["Sintomas"])
+    c3, c4 = st.columns(2)
+    enf = c3.text_input("Enfermedades", value=p["Enfermedades"])
+    med = c4.text_input("Medicamentos", value=p["Medicamentos"])
+
+with tabs[2]:
+    familia = st.text_area("Historia Familiar", value=p["Historia_Familiar"])
+    sexual = st.text_area("Historia Sexual", value=p["Historia_Sexual"])
+    escolar = st.text_area("Historia Escolar", value=p["Historia_Escolar"])
+
+with tabs[3]:
+    examen = st.text_area("Examen Mental", value=p["Examen_Mental"])
+    perso = st.text_area("Personalidad Previa", value=p["Personalidad_Previa"])
+    st.divider()
+    nota_hoy = st.text_area("Nota de Seguimiento:")
+    f_cita = st.date_input("Próxima Cita")
+
+# --- 5. BOTÓN FINAL ---
+if st.button("💾 GUARDAR Y ANALIZAR"):
+    if nombre and motivo:
+        # Construir el diccionario de datos
+        datos_finales = {
+            "Nombre": nombre, "Identidad": identidad, "Edad": edad, 
+            "Rango_Militar": rango, "Motivo_Consulta": motivo, 
+            "Sintomas": sintomas, "Enfermedades": enf, "Medicamentos": med,
+            "Historia_Familiar": familia, "Historia_Sexual": sexual, 
+            "Historia_Escolar": escolar, "Examen_Mental": examen, 
+            "Personalidad_Previa": perso, 
+            "Seguimiento": p["Seguimiento"] + f"\n[{date.today()}]: {nota_hoy}",
+            "Proxima_Cita": str(f_cita)
+        }
+        
+        # IA y Guardado
+        res_ia = analizar_caso(datos_finales)
+        guardar_db(datos_finales)
+        
+        # Mostrar resultados
+        st.subheader("🧠 Análisis de IA")
+        st.error(f"Diagnóstico: {res_ia['diag']}")
+        st.info(f"Pruebas: {res_ia['tests']}")
+        
+        # Generar Word
+        doc = Document()
+        doc.add_heading('EXPEDIENTE D.S.P.', 0)
+        for k, v in datos_finales.items():
+            doc.add_paragraph(f"{k}: {v}")
+        
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        st.download_button("📥 Descargar Word", buf, f"Expediente_{nombre}.docx")
+    else:
+        st.warning("Complete el Nombre y el Motivo.")
