@@ -2,150 +2,186 @@ import streamlit as st
 import pandas as pd
 import os, io
 from docx import Document
-from docx.shared import Pt
 from datetime import datetime, date
 
-# --- 1. CONFIGURACIÓN ---
-st.set_page_config(page_title="Sistema Integral D.S.P.", layout="wide")
-DB_FILE = "base_datos_dsp_final.xlsx"
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="D.S.P. Honduras - Sistema Clínico", layout="wide")
+DB_FILE = "base_datos_dsp_honduras.xlsx"
 
+# --- FUNCIONES DE BASE DE DATOS ---
 def cargar_db():
-    if not os.path.exists(DB_FILE): return pd.DataFrame()
-    try: return pd.read_excel(DB_FILE).astype(str).replace('nan', '')
-    except: return pd.DataFrame()
+    if not os.path.exists(DB_FILE):
+        return pd.DataFrame()
+    return pd.read_excel(DB_FILE).astype(str).replace('nan', '')
 
-if 'datos' not in st.session_state:
-    st.session_state.datos = {}
+def guardar_db(datos_dict):
+    df = cargar_db()
+    # Si el paciente ya existe (por Identidad), lo eliminamos para actualizarlo
+    if not df.empty and "Identidad" in df.columns:
+        df = df[df["Identidad"] != datos_dict["Identidad"]]
+    nuevo_df = pd.DataFrame([datos_dict])
+    df_final = pd.concat([df, nuevo_df], ignore_index=True)
+    df_final.to_excel(DB_FILE, index=False)
+    return df_final
 
-# --- 2. MOTOR DE ANÁLISIS IA ---
-def analizar_con_ia(d):
-    """Genera un análisis clínico basado en los datos ingresados."""
-    texto_clínico = f"{d.get('Motivo', '')} {str(d.get('Sintomas_X', ''))} {d.get('Impulsos', '')}".lower()
-    analisis = "Paciente orientado en tiempo y espacio. "
-    tests = "16PF, BARSIT. "
-    terapia = "Apoyo psicológico básico y seguimiento. "
+# --- BUSCADOR EN BARRA LATERAL ---
+db_actual = cargar_db()
+
+with st.sidebar:
+    st.header("🔍 BUSCAR PACIENTE")
+    opciones = ["NUEVO REGISTRO"]
+    if not db_actual.empty:
+        opciones += db_actual["Nombre"].tolist()
     
-    # Lógica de detección de riesgos
-    if any(x in texto_clínico for x in ["morir", "suicid", "triste", "solo", "vida"]):
-        analisis += "Se detectan indicadores de riesgo depresivo y/o ideación suicida. Requiere vigilancia."
-        tests = "MMPI-2, Inventario de Depresión de Beck (BDI-II), SCL-90-R."
-        terapia = "Terapia Cognitivo-Conductual enfocada en crisis y posible remisión a psiquiatría."
-    elif any(x in texto_clínico for x in ["ira", "golpe", "arma", "pelea", "ley", "drogas"]):
-        analisis += "Indicadores de baja tolerancia a la frustración y riesgo de conducta impulsiva/agresiva."
-        tests = "Test de Personalidad IPV, HTP (Casa-Árbol-Persona), 16PF."
-        terapia = "Entrenamiento en manejo de la ira y control de impulsos."
+    seleccion = st.selectbox("Seleccione un paciente existente:", opciones)
+    
+    # Cargar datos si existe
+    if seleccion != "NUEVO REGISTRO":
+        datos_previa = db_actual[db_actual["Nombre"] == seleccion].iloc[0].to_dict()
+        st.success(f"Cargado: {seleccion}")
     else:
-        analisis += "No se observan indicadores críticos de riesgo inmediato durante la evaluación."
-        
-    return analisis, tests, terapia
+        datos_previa = {}
 
-# --- 3. INTERFAZ ---
-st.title("🛡️ Gestión Clínica e Informe Final - D.S.P.")
-tabs = st.tabs(["I. Generales", "II-V. Clínica", "VI-IX. Historia/Desarrollo", "X-XI. Personalidad", "XII. INFORME FINAL E IA"])
+st.title("🛡️ Protocolo de Entrevista Clínica Completa - D.S.P.")
 
-# --- (Las pestañas I a XI mantienen la estructura anterior para no perder datos) ---
-with tabs[0]:
-    c1, c2 = st.columns(2)
-    st.session_state.datos["Nombre"] = c1.text_input("Nombre Completo")
-    st.session_state.datos["Identidad"] = c2.text_input("Identidad")
-    st.session_state.datos["Edad"] = st.text_input("Edad")
-    st.session_state.datos["Motivo"] = st.text_area("Motivo de Consulta")
+# --- TABS CON TODAS LAS PREGUNTAS ---
+t1, t2, t3, t4, t5, t6 = st.tabs(["I-II. Generales", "III-V. Salud", "VI. Familia", "VII-IX. Desarrollo", "X-XII. Informe", "📊 Ver Base de Datos"])
 
-with tabs[1]:
-    f1, f2 = st.columns(2)
-    st.session_state.datos["Sueño"] = f1.text_input("Sueño")
-    st.session_state.datos["Apetito"] = f2.text_input("Apetito")
-    sints = ["Pesadillas", "Ganas de morir", "Escucha voces", "Drogas", "Alcohol", "Ira", "Fobias"]
-    st.session_state.datos["Sintomas_X"] = st.multiselect("Síntomas detectados:", sints)
-
-with tabs[2]:
-    st.session_state.datos["Historia_Familiar"] = st.text_area("Resumen Historia Familiar")
-    st.session_state.datos["Desarrollo"] = st.text_area("Resumen Desarrollo (Parto, Hitos, Escuela)")
-
-with tabs[3]:
-    st.session_state.datos["Impulsos"] = st.text_input("Control de Impulsos")
-    st.session_state.datos["Relaciones"] = st.text_input("Relaciones Interpersonales")
-
-# --- 4. NUEVA SECCIÓN: INFORME FINAL ---
-with tabs[4]:
-    st.subheader("📝 Cierre del Caso y Análisis de IA")
+# SECCIÓN I: GENERALES
+with t1:
+    st.subheader("DATOS GENERALES")
+    c1, c2, c3 = st.columns(3)
+    nom = c1.text_input("Nombre Completo", value=datos_previa.get("Nombre", ""))
+    ide = c2.text_input("Identidad", value=datos_previa.get("Identidad", ""))
+    f_nac = c3.text_input("Lugar y Fecha Nacimiento", value=datos_previa.get("Lugar_Fecha_Nac", ""))
     
-    if st.button("🧠 GENERAR PRE-ANÁLISIS DE IA"):
-        analisis, tests_sug, plan_sug = analizar_con_ia(st.session_state.datos)
-        st.session_state.datos["IA_Analisis"] = analisis
-        st.session_state.datos["IA_Tests"] = tests_sug
-        st.session_state.datos["IA_Plan"] = plan_sug
-        st.info("La IA ha generado una propuesta basada en los datos ingresados. Puede editarla abajo.")
-
-    colA, colB = st.columns(2)
-    st.session_state.datos["Analisis_Clinico"] = colA.text_area("Análisis y Hallazgos (IA + Criterio)", value=st.session_state.datos.get("IA_Analisis", ""))
-    st.session_state.datos["Tests_Recomendados"] = colB.text_area("Pruebas Psicométricas Sugeridas", value=st.session_state.datos.get("IA_Tests", ""))
+    c4, c5, c6 = st.columns(3)
+    nac = c4.text_input("Nacionalidad", value=datos_previa.get("Nacionalidad", ""))
+    sex = c5.selectbox("Sexo", ["M", "F"], index=0 if datos_previa.get("Sexo") == "M" else 1)
+    eda = c6.text_input("Edad", value=datos_previa.get("Edad", ""))
     
-    st.session_state.datos["Concluciones"] = st.text_area("Conclusiones Clínicas")
-    st.session_state.datos["Recomendaciones"] = st.text_area("Recomendaciones Terapéuticas")
-    st.session_state.datos["Terapia"] = st.text_area("Tipo de Terapia / Plan de Acción", value=st.session_state.datos.get("IA_Plan", ""))
+    cel = c1.text_input("Celular", value=datos_previa.get("Celular", ""))
+    ocu = c2.text_input("Ocupación Actual", value=datos_previa.get("Ocupacion", ""))
+    asi = c3.text_input("Asignación", value=datos_previa.get("Asignacion", ""))
+    dir_a = st.text_input("Dirección Actual", value=datos_previa.get("Direccion", ""))
+    rem = st.text_input("Remitido por", value=datos_previa.get("Remitido", ""))
+    mot = st.text_area("MOTIVO DE CONSULTA", value=datos_previa.get("Motivo", ""))
+
+# SECCIÓN II: SALUD (DETALLE MÁXIMO)
+with t2:
+    st.subheader("ANTECEDENTES CLÍNICOS")
+    ant_s = st.text_area("Antecedentes de la situación (Desarrollo de síntomas)", value=datos_previa.get("Ant_Situacion", ""))
+    
+    st.write("**Funciones Orgánicas**")
+    f1, f2, f3, f4 = st.columns(4)
+    sue = f1.text_input("Sueño", value=datos_previa.get("Sueño", ""))
+    ape = f2.text_input("Apetito", value=datos_previa.get("Apetito", ""))
+    sed = f3.text_input("Sed", value=datos_previa.get("Sed", ""))
+    defec = f4.text_input("Defecación", value=datos_previa.get("Defecacion", ""))
+    
+    c7, c8 = st.columns(2)
+    ale = c7.text_input("¿Alergias?", value=datos_previa.get("Alergias", ""))
+    med = c8.text_input("¿Medicamentos?", value=datos_previa.get("Medicamentos", ""))
+    
+    hosp = st.text_input("¿Hospitalizado? ¿Por qué?", value=datos_previa.get("Hospitalizado", ""))
+    
+    st.write("**Síntomas Neuroticos**")
+    checklist = st.multiselect("Marque síntomas presentes:", 
+                               ["Pesadillas", "Enuresis", "Tics", "Fobias", "Drogas", "Alcohol", "Ideas Suicidas", "Voces"],
+                               default=eval(datos_previa.get("Checklist", "[]")) if seleccion != "NUEVO REGISTRO" else [])
+
+# SECCIÓN III: FAMILIA
+with t3:
+    st.subheader("INFORMACIÓN FAMILIAR")
+    pad_n = st.text_input("Nombre del Padre", value=datos_previa.get("Padre_Nom", ""))
+    pad_r = st.text_area("Relación y castigos con el Padre", value=datos_previa.get("Padre_Rel", ""))
+    mad_n = st.text_input("Nombre de la Madre", value=datos_previa.get("Madre_Nom", ""))
+    mad_r = st.text_area("Relación y castigos con la Madre", value=datos_previa.get("Madre_Rel", ""))
+    herm = st.text_input("Hermanos y posición", value=datos_previa.get("Hermanos", ""))
+    hist_f = st.text_area("Historia familiar feliz", value=datos_previa.get("Historia_Feliz", ""))
+
+# SECCIÓN IV: DESARROLLO
+with t4:
+    st.subheader("DESARROLLO Y SOCIAL")
+    c9, c10 = st.columns(2)
+    emb = c9.text_input("Embarazo (Planificado/Reacción)", value=datos_previa.get("Embarazo", ""))
+    par = c10.text_input("Parto (Fórceps/Incubadora)", value=datos_previa.get("Parto", ""))
+    hitos = st.text_input("Hitos (Sentarse, gatear, caminar)", value=datos_previa.get("Hitos", ""))
+    esc = st.text_area("Historia Escolar (Materias, problemas, repitencia)", value=datos_previa.get("Escuela", ""))
+
+# SECCIÓN V: INFORME E IA
+with t5:
+    st.subheader("INFORME FINAL, CONCLUSIONES Y RECOMENDACIONES")
+    
+    # Análisis IA simplificado
+    ia_analisis = f"Paciente {nom}, con motivo de consulta: {mot}. Presenta síntomas de {checklist}."
+    
+    ana = st.text_area("Análisis del Psicólogo", value=datos_previa.get("Analisis", ia_analisis))
+    concl = st.text_area("Conclusiones", value=datos_previa.get("Conclusiones", ""))
+    recom = st.text_area("Recomendaciones y Test sugeridos", value=datos_previa.get("Recomendaciones", ""))
+    tera = st.text_area("Plan Terapéutico", value=datos_previa.get("Terapia", ""))
     
     st.divider()
-    c3, c4 = st.columns(2)
-    st.session_state.datos["Psicologo"] = c3.text_input("Psicólogo Evaluador")
-    st.session_state.datos["Proxima_Cita"] = c4.date_input("Próxima Cita", value=date.today())
+    psic = st.text_input("Nombre del Psicólogo Evaluador", value=datos_previa.get("Psicologo", ""))
+    prox = st.date_input("Próxima Cita")
 
-# --- 5. GUARDADO E IMPRESIÓN DEL INFORME ---
-if st.button("💾 GUARDAR Y GENERAR INFORME FINAL"):
-    if st.session_state.datos.get("Nombre") and st.session_state.datos.get("Identidad"):
-        # Guardar en Excel
-        df_nuevo = pd.DataFrame([st.session_state.datos])
-        db = cargar_db()
-        pd.concat([db, df_nuevo], ignore_index=True).to_excel(DB_FILE, index=False)
-        
-        # --- GENERAR WORD PROFESIONAL ---
-        doc = Document()
-        
-        # Encabezado
-        header = doc.add_heading('INFORME PSICOLÓGICO CLÍNICO - D.S.P. HONDURAS', 0)
-        header.alignment = 1
-        
-        # Sección Datos Personales
-        doc.add_heading('1. DATOS GENERALES', level=1)
-        doc.add_paragraph(f"Nombre: {st.session_state.datos['Nombre']}")
-        doc.add_paragraph(f"Identidad: {st.session_state.datos['Identidad']}")
-        doc.add_paragraph(f"Fecha de Evaluación: {date.today()}")
-        
-        # Motivo
-        doc.add_heading('2. MOTIVO DE CONSULTA', level=1)
-        doc.add_paragraph(st.session_state.datos['Motivo'])
-        
-        # Análisis
-        doc.add_heading('3. ANÁLISIS E INTERPRETACIÓN (IA & CLÍNICA)', level=1)
-        doc.add_paragraph(st.session_state.datos['Analisis_Clinico'])
-        
-        # Conclusiones y Recomendaciones
-        doc.add_heading('4. CONCLUSIONES', level=1)
-        doc.add_paragraph(st.session_state.datos['Concluciones'])
-        
-        doc.add_heading('5. RECOMENDACIONES Y TEST', level=1)
-        doc.add_paragraph(f"Tests sugeridos: {st.session_state.datos['Tests_Recomendados']}")
-        doc.add_paragraph(f"Recomendaciones generales: {st.session_state.datos['Recomendaciones']}")
-        
-        # Plan Terapéutico
-        doc.add_heading('6. PLAN TERAPÉUTICO', level=1)
-        doc.add_paragraph(st.session_state.datos['Terapia'])
-        
-        # Firma
-        doc.add_paragraph("\n\n\n__________________________")
-        doc.add_paragraph(f"Firma y Sello: {st.session_state.datos['Psicologo']}")
-        
-        # Preparar archivo
-        buf = io.BytesIO()
-        doc.save(buf)
-        buf.seek(0)
-        
-        st.success("✅ Expediente e Informe guardados con éxito.")
-        st.download_button(
-            label="📥 DESCARGAR INFORME FINAL (WORD)",
-            data=buf,
-            file_name=f"Informe_{st.session_state.datos['Identidad']}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+# SECCIÓN VI: VER BASE DE DATOS
+with t6:
+    st.subheader("📊 Explorador de Base de Datos")
+    if not db_actual.empty:
+        st.dataframe(db_actual)
+        # Botón para descargar toda la base de datos en Excel
+        buf_ex = io.BytesIO()
+        db_actual.to_excel(buf_ex, index=False)
+        st.download_button("📥 Descargar Excel Completo", buf_ex, "base_datos_dsp.xlsx")
     else:
-        st.error("Nombre e Identidad son requeridos.")
+        st.info("La base de datos está vacía actualmente.")
+
+# --- GUARDADO ---
+if st.button("💾 GUARDAR Y GENERAR INFORME"):
+    if nom and ide:
+        # Recopilamos absolutamente todo
+        datos_completos = {
+            "Nombre": nom, "Identidad": ide, "Lugar_Fecha_Nac": f_nac, "Nacionalidad": nac,
+            "Sexo": sex, "Edad": eda, "Celular": cel, "Ocupacion": ocu, "Asignacion": asi,
+            "Direccion": dir_a, "Remitido": rem, "Motivo": mot, "Ant_Situacion": ant_s,
+            "Sueño": sue, "Apetito": ape, "Sed": sed, "Defecacion": defec,
+            "Alergias": ale, "Medicamentos": med, "Hospitalizado": hosp,
+            "Checklist": str(checklist), "Padre_Nom": pad_n, "Padre_Rel": pad_r,
+            "Madre_Nom": mad_n, "Madre_Rel": mad_r, "Hermanos": herm, "Historia_Feliz": hist_f,
+            "Embarazo": emb, "Parto": par, "Hitos": hitos, "Escuela": esc,
+            "Analisis": ana, "Conclusiones": concl, "Recomendaciones": recom,
+            "Terapia": tera, "Psicologo": psic, "Proxima_Cita": str(prox), "Fecha_Registro": str(date.today())
+        }
+        
+        # 1. Guardar en Excel
+        db_final = guardar_db(datos_completos)
+        st.success("✅ Datos guardados y actualizados en el Excel.")
+        
+        # 2. Generar Word con Conclusiones y Recomendaciones
+        doc = Document()
+        doc.add_heading(f'INFORME PSICOLÓGICO: {nom}', 0)
+        
+        # Estructura del Informe
+        secciones = {
+            "MOTIVO DE CONSULTA": mot,
+            "ANÁLISIS CLÍNICO": ana,
+            "CONCLUSIONES": concl,
+            "RECOMENDACIONES Y TEST": recom,
+            "PLAN TERAPÉUTICO": tera
+        }
+        
+        for titulo, contenido in secciones.items():
+            doc.add_heading(titulo, level=1)
+            doc.add_paragraph(contenido)
+            
+        doc.add_paragraph(f"\n\nPsicólogo Evaluador: {psic}")
+        doc.add_paragraph(f"Fecha: {date.today()}")
+        
+        buf_word = io.BytesIO()
+        doc.save(buf_word)
+        buf_word.seek(0)
+        
+        st.download_button("📥 Descargar Informe Word Final", buf_word, f"Informe_{ide}.docx")
+    else:
+        st.error("Nombre e Identidad son obligatorios.")
