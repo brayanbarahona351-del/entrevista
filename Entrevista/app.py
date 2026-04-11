@@ -1,8 +1,8 @@
 import streamlit as st
 from fpdf import FPDF
 
-# --- CONFIGURACIÓN ---
-st.set_page_config(page_title="IA Clínica D.S.P. - Descarga de Tests", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Sistema D.S.P. - Formulario Completo", layout="wide")
 
 class DSP_PDF(FPDF):
     def header(self):
@@ -11,86 +11,93 @@ class DSP_PDF(FPDF):
         self.cell(0, 5, 'DIRECCION DE SANIDAD POLICIAL (D.S.P.)', 0, 1, 'C')
         self.ln(5)
 
-def generar_pdf_ia(entrevista, informe_ia):
+def generar_pdf(datos, informe_ia):
     pdf = DSP_PDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     def c(t): return str(t).encode('latin-1', 'replace').decode('latin-1')
     
     pdf.add_page()
-    pdf.set_font("helvetica", 'B', 14)
-    pdf.cell(0, 10, c("INFORME CLÍNICO Y RECOMENDACIÓN DE TESTS"), 0, 1, 'C')
-    
-    for sec, campos in entrevista.items():
+    pdf.set_font("helvetica", 'B', 12)
+    pdf.cell(0, 10, c("ENTREVISTA PSICOLÓGICA PARA ADULTOS"), 0, 1, 'C')
+
+    for seccion, campos in datos.items():
         pdf.set_font("helvetica", 'B', 10)
-        pdf.set_fill_color(235, 235, 235)
-        pdf.cell(0, 8, c(sec), 1, 1, 'L', True)
+        pdf.set_fill_color(230, 230, 230)
+        pdf.cell(0, 7, c(seccion), 1, 1, 'L', True)
         pdf.set_font("helvetica", '', 9)
         for k, v in campos.items():
             pdf.multi_cell(185, 5, c(f"{k}: {v}"))
         pdf.ln(2)
-
+    
+    # Página de Informe IA
+    pdf.add_page()
+    pdf.set_font("helvetica", 'B', 12)
+    pdf.cell(0, 10, c("INFORME DE RESULTADOS E IA"), 0, 1, 'C')
+    for k, v in informe_ia.items():
+        pdf.set_font("helvetica", 'B', 10)
+        pdf.cell(0, 7, c(k), 0, 1, 'L')
+        pdf.set_font("helvetica", '', 9)
+        pdf.multi_cell(185, 5, c(v))
+        pdf.ln(2)
+        
     return pdf.output()
 
-# --- BASE DE DATOS DE IDs DE DESCARGA (Debes obtener estos IDs de tu Drive) ---
-# Para obtener el ID: Clic derecho en el archivo en Drive -> Compartir -> Copiar enlace. 
-# El ID es el código largo entre /d/ y /view.
-TESTS_DATABASE = {
-    "16PF-5": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_16PF",
-    "MMPI-2": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_MMPI2",
-    "BARSIT": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_BARSIT",
-    "HTP": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_HTP",
-    "Persona Bajo la Lluvia": "https://drive.google.com/uc?export=download&id=ID_DE_TU_ARCHIVO_PBLL"
-}
-
-def motor_ia_recomendador(motivo, sintomas):
-    texto = motivo.lower()
-    recomendaciones = []
+# --- MOTOR DE IA ---
+def analizar_ia(motivo, personalidad, sintomas):
+    corpus = (motivo + " " + personalidad).lower()
+    folder_psicometria = "https://drive.google.com/drive/folders/1lrH7AKPKXOVeFkcc_EdO03E0Ar5k4wbv"
+    folder_proyectivos = "https://drive.google.com/drive/folders/1yji6O5YIcYOjW1IG0fIhp4MJZgrcToys"
     
-    if any(x in texto for x in ["morir", "suicid", "triste"]):
-        recomendaciones.append("MMPI-2")
-    if any(x in texto for x in ["ira", "agresivo", "impulso"]):
-        recomendaciones.append("16PF-5")
-    if "Escucha voces" in sintomas or "Ver cosas extrañas" in sintomas:
-        recomendaciones.append("HTP")
-        recomendaciones.append("Persona Bajo la Lluvia")
+    recom = []
+    if any(x in corpus for x in ["morir", "suicid", "triste", "lloro"]):
+        recom.append(f"MMPI-2 / SCL-90-R: {folder_psicometria}")
+    if any(x in corpus for x in ["voces", "veo", "sombras"]):
+        recom.append(f"Batería Proyectiva (HTP/Machover): {folder_proyectivos}")
     
-    if not recomendaciones:
-        recomendaciones.append("BARSIT")
-        
-    return recomendaciones
+    return {
+        "DIAGNÓSTICO SUGERIDO": "Análisis basado en narrativa clínica.",
+        "TESTS RECOMENDADOS": "\n".join(recom) if recom else f"Evaluación Estándar (16PF): {folder_psicometria}"
+    }
 
-# --- INTERFAZ ---
-st.title("🛡️ Asistente D.S.P. con Descarga de Protocolos")
+# --- INTERFAZ STREAMLIT (TODAS LAS PREGUNTAS) ---
+st.title("📋 Expediente Clínico D.S.P. (Versión Completa)")
 
-with st.sidebar:
-    st.header("Configuración de Archivos")
-    st.info("Para que la descarga funcione, asegúrate de que los archivos en tu Drive estén configurados como 'Cualquier persona con el enlace puede leer'.")
+tabs = st.tabs(["I. Datos Generales", "II-V. Motivo y Salud", "VI. Familia", "VII-IX. Social y Desarrollo", "X-XI. Sexualidad y Personalidad"])
 
-nombre = st.text_input("Nombre del Evaluado")
-motivo = st.text_area("Motivo de consulta (Análisis de IA)")
-sintomas = st.multiselect("Síntomas:", ["Ganas de morir", "Escucha voces", "Ansiedad", "Agresividad"])
+with tabs[0]:
+    st.subheader("I. DATOS GENERALES")
+    nombre = st.text_input("Nombre Completo")
+    c1, c2, c3 = st.columns(3)
+    lugar_nac = c1.text_input("Lugar y Fecha de Nacimiento")
+    nacionalidad = c2.text_input("Nacionalidad")
+    religion = c3.text_input("Religión")
+    sexo = c1.selectbox("Sexo", ["M", "F"])
+    est_civil = c2.text_input("Estado Civil")
+    edad = c3.text_input("Edad")
+    ocupacion = c1.text_input("Ocupación / Asignación")
+    militar = c2.radio("¿Servicio Militar?", ["Sí", "No"], horizontal=True)
+    educacion = c3.text_input("Nivel Educativo")
+    direccion = st.text_input("Dirección Actual")
+    celular = st.text_input("Celular")
+    remitido = st.text_input("Remitido por")
+    pasatiempos = st.text_input("Pasatiempos y Deportes")
 
-if st.button("ANALIZAR Y GENERAR RECOMENDACIONES"):
-    if nombre and motivo:
-        tests_sugeridos = motor_ia_recomendador(motivo, sintomas)
-        
-        st.subheader("🤖 Análisis de la IA:")
-        st.write(f"Basado en el motivo de consulta, se recomienda aplicar los siguientes protocolos disponibles en tu Drive:")
-        
-        # Generar botones de descarga dinámicos
-        cols = st.columns(len(tests_sugeridos))
-        for i, test in enumerate(tests_sugeridos):
-            with cols[i]:
-                st.markdown(f"**{test}**")
-                # Botón que redirige a la descarga directa
-                st.link_button(f"Descargar {test}", TESTS_DATABASE.get(test, "#"))
+with tabs[1]:
+    st.subheader("II-V. MOTIVO Y SALUD")
+    motivo = st.text_area("II. Motivo de Consulta")
+    antecedentes_sit = st.text_area("III. Antecedentes de la situación (Desarrollo de síntomas)")
+    funciones = st.text_input("Funciones Orgánicas (Sueño, Apetito, Sed, Defecación)")
+    alergias = st.text_input("¿Padece Alergias?")
+    medicamentos = st.text_input("¿Toma Medicamentos?")
+    infancia = st.text_area("IV. Enfermedades infancia, cirugías u hospitalizaciones")
+    st.write("V. SÍNTOMAS (Marque todos los presentes en su vida):")
+    s_lista = ["Insomnio", "Pesadillas", "Sonambulismo", "Comerse las uñas", "Maltrato Físico", "Escucha voces", "Miedos o fobias", "Golpes en la cabeza", "Ver cosas extrañas", "Orinarse en la cama", "Consumo de drogas", "Mareos o desmayos", "Accidentes", "Intentos suicidas", "Tartamudez", "Ganas de morir", "Tics nerviosos"]
+    seleccionados = st.multiselect("Hallazgos:", s_lista)
 
-        # Generar el PDF del informe
-        datos_e = {"DATOS": {"Nombre": nombre}, "ANALISIS": {"Motivo": motivo}}
-        informe_ia = {"RECOMENDACION": ", ".join(tests_sugeridos)}
-        pdf_out = generar_pdf_ia(datos_e, informe_ia)
-        
-        st.divider()
-        st.download_button("⬇️ Descargar Informe de Entrevista (PDF)", data=bytes(pdf_out), file_name=f"Informe_{nombre}.pdf")
-    else:
-        st.error("Por favor rellene los campos obligatorios.")
+with tabs[2]:
+    st.subheader("VI. INFORMACIÓN FAMILIAR")
+    conyugue = st.text_input("Nombre, edad, ocupación y salud del Cónyuge")
+    pareja_rel = st.text_area("Relación de pareja")
+    padre = st.text_area("Nombre del Padre, relación y castigos")
+    madre = st.text_area("Nombre de la Madre, relación y castigos")
+    hermanos = st.text_input("Número de hermanos y
