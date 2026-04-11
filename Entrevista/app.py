@@ -4,9 +4,9 @@ import os, io
 from docx import Document
 from datetime import datetime, date
 
-# --- 1. CONFIGURACIÓN ---
-st.set_page_config(page_title="D.S.P. Honduras - Protocolo Oficial v24", layout="wide")
-DB_FILE = "DB_DSP_SISTEMA_MAESTRO.xlsx"
+# --- 1. CONFIGURACIÓN Y BASE DE DATOS ---
+st.set_page_config(page_title="D.S.P. Honduras - Protocolo Oficial v25", layout="wide")
+DB_FILE = "DB_DSP_MAESTRO_HONDURAS.xlsx"
 
 def cargar_db():
     if not os.path.exists(DB_FILE): return pd.DataFrame()
@@ -25,7 +25,7 @@ def v_idx(opcion, lista):
     try: return lista.index(opcion)
     except: return 0
 
-# --- 2. MOTOR DE IA ACTUALIZADO ---
+# --- 2. MOTOR DE ANÁLISIS IA ---
 def motor_ia_dsp(motivo, sintomas_vida):
     texto = (str(motivo) + str(sintomas_vida)).lower()
     if any(x in texto for x in ["suicid", "morir", "matar", "solo", "vida"]):
@@ -42,127 +42,168 @@ def motor_ia_dsp(motivo, sintomas_vida):
         tests = "1. 16PF-5: https://bit.ly/16pf5-ref\n2. ADICIONAL: Test HTP\n3. ADICIONAL: Inventario de Ansiedad (BAI)."
     return concl, segui, tests
 
-# --- 3. GESTIÓN DE EXPEDIENTES ---
+# --- 3. BÚSQUEDA ---
 db_actual = cargar_db()
 with st.sidebar:
-    st.header("📂 ARCHIVO CLÍNICO")
-    id_list = ["--- NUEVO ---"] + (db_actual["Identidad"].tolist() if not db_actual.empty else [])
-    seleccion = st.selectbox("Buscar por Identidad:", id_list)
-    d = db_actual[db_actual["Identidad"] == seleccion].iloc[0].to_dict() if seleccion != "--- NUEVO ---" else {}
+    st.header("📂 ARCHIVO D.S.P.")
+    id_list = ["--- NUEVO REGISTRO ---"] + (db_actual["Identidad"].tolist() if not db_actual.empty else [])
+    seleccion = st.selectbox("Identidad del Paciente:", id_list)
+    d = db_actual[db_actual["Identidad"] == seleccion].iloc[0].to_dict() if seleccion != "--- NUEVO REGISTRO ---" else {}
 
-st.title("🛡️ Protocolo de Evaluación Psicológica D.S.P.")
+st.title("🛡️ Protocolo de Entrevista Clínica Exhaustiva - D.S.P.")
 
-# --- 4. LAS 12 ÁREAS (SIN RECORTES) ---
-tabs = st.tabs(["I-II", "III-V", "VI. Checklist", "VII. FAMILIA EXTENDIDA", "VIII-IX", "X-XI", "XII. INFORME IA"])
+# --- 4. LAS 12 ÁREAS DEL PROTOCOLO (TOTALMENTE DESPLEGADAS) ---
+tabs = st.tabs([
+    "I-II. Identificación", "III-V. Salud Médica", "VI. Checklist Vida", 
+    "VII. Familiares", "VIII-IX. Desarrollo", "X-XI. Sexo/Pers.", "XII. RESULTADOS IA"
+])
 
 with tabs[0]:
     st.subheader("I. IDENTIFICACIÓN Y II. MOTIVO")
     c1, c2, c3 = st.columns(3)
-    identidad = c1.text_input("Identidad", value=d.get("Identidad", ""))
-    nombre = c2.text_input("Nombre Completo", value=d.get("Nombre", ""))
-    edad = c3.text_input("Edad", value=d.get("Edad", ""))
-    motivo = st.text_area("Motivo de consulta literal:", value=d.get("Motivo", ""))
+    id_pac = c1.text_input("Número de Identidad", value=d.get("Identidad", ""))
+    nom_pac = c2.text_input("Nombre Completo", value=d.get("Nombre", ""))
+    f_nac = c3.text_input("Fecha/Lugar de Nacimiento", value=d.get("F_Nac", ""))
+    
+    c4, c5, c6 = st.columns(3)
+    edad = c4.text_input("Edad Actual", value=d.get("Edad", ""))
+    s_l = ["M", "F"]; sexo = c5.selectbox("Sexo", s_l, index=v_idx(d.get("Sexo"), s_l))
+    ec_l = ["Soltero", "Casado", "Divorciado", "Unión Libre", "Viudo"]; est_civil = c6.selectbox("Estado Civil", ec_l, index=v_idx(d.get("Estado_Civil"), ec_l))
+    
+    nacionalidad = st.text_input("Nacionalidad", value=d.get("Nacionalidad", ""))
+    ocupacion = st.text_input("Ocupación/Grado", value=d.get("Ocupacion", ""))
+    asignacion = st.text_input("Asignación o Unidad", value=d.get("Asignacion", ""))
+    remitido = st.text_input("Remitido por:", value=d.get("Remitido", ""))
+    
+    motivo = st.text_area("II. MOTIVO DE CONSULTA (Vaciado literal del paciente)", value=d.get("Motivo", ""))
 
 with tabs[1]:
-    st.subheader("III-V. ORGÁNICAS Y SALUD")
-    c4, c5, c6 = st.columns(3)
-    s_l = ["Normal", "Insomnio", "Hipersomnia"]; sueño = c4.selectbox("Sueño", s_l, index=v_idx(d.get("Sueño"), s_l))
-    cefaleas = c5.text_input("Cefaleas", value=d.get("Cefaleas", ""))
-    convulsiones = c6.text_input("Convulsiones", value=d.get("Convulsiones", ""))
-    hosp = st.text_input("Hospitalizaciones y Cirugías", value=d.get("Hosp", ""))
+    st.subheader("III-IV. FUNCIONES ORGÁNICAS Y ANTECEDENTES")
+    ant_sit = st.text_area("¿Cuándo comenzó la situación actual?", value=d.get("Ant_Sit", ""))
+    
+    c7, c8, c9, c10 = st.columns(4)
+    su_l = ["Normal", "Insomnio", "Hipersomnia", "Interrumpido"]; sueño = c7.selectbox("Sueño", su_l, index=v_idx(d.get("Sueño", "Normal"), su_l))
+    ap_l = ["Normal", "Aumentado", "Disminuido"]; apetito = c8.selectbox("Apetito", ap_l, index=v_idx(d.get("Apetito", "Normal"), ap_l))
+    sed = c9.text_input("Sed", value=d.get("Sed", ""))
+    defec = c10.text_input("Defecación", value=d.get("Defec", ""))
+    
+    st.subheader("V. ESTADO DE SALUD MÉDICA")
+    c11, c12, c13, c14 = st.columns(4)
+    convulsiones = c11.text_input("Convulsiones", value=d.get("Convulsiones", ""))
+    cefaleas = c12.text_input("Cefaleas", value=d.get("Cefaleas", ""))
+    resp = c13.text_input("Enf. Respiratorias", value=d.get("Resp", ""))
+    infec = c14.text_input("Infecciones", value=d.get("Infecciones", ""))
+    
+    c15, c16 = st.columns(2)
+    alergias = c15.text_input("Alergias", value=d.get("Alergias", ""))
+    meds = c16.text_input("Medicamentos Actuales", value=d.get("Meds", ""))
+    
+    hosp = st.text_input("Hospitalizaciones (Motivo y Tiempo)", value=d.get("Hosp", ""))
+    cirugias = st.text_input("Cirugías (Tipo y Fecha)", value=d.get("Cirugias", ""))
 
 with tabs[2]:
-    st.subheader("VI. ¿HA PRESENTADO ESTO EN SU VIDA?")
-    v_list = ["Pesadillas", "Enuresis", "Tics", "Drogas", "Alcohol", "Ideas Suicidas", "Fobias", "Alucinaciones"]
-    check_vida = st.multiselect("Marque con una X:", v_list, default=eval(d.get("Check_Vida", "[]")) if d else [])
+    st.subheader("VI. CHECKLIST: MARQUE CON UNA X SI HA PRESENTADO EN SU VIDA:")
+    items_vida = [
+        "Pesadillas", "Terror Nocturno", "Sonambulismo", "Enuresis", "Encopresis", 
+        "Onicofagia", "Tics", "Fobias", "Drogas", "Alcohol", "Ideas Suicidas", 
+        "Intentos Suicidas", "Alucinaciones", "Pérdida de Memoria", "Mareos"
+    ]
+    check_vida = st.multiselect("Marque los síntomas presentados:", items_vida, 
+                                 default=eval(d.get("Check_Vida", "[]")) if d else [])
 
 with tabs[3]:
-    st.subheader("VII. ÁREA FAMILIAR (DETALLADA)")
-    col_p, col_m = st.columns(2)
-    with col_p:
+    st.subheader("VII. ÁREA FAMILIAR Y SOCIAL")
+    col1, col2 = st.columns(2)
+    with col1:
         st.write("**DATOS DEL PADRE**")
-        p_nom = st.text_input("Nombre Padre", value=d.get("P_Nom", ""))
-        p_edad = st.text_input("Edad Padre", value=d.get("P_Edad", ""))
-        p_vive = st.selectbox("¿Vive?", ["Sí", "No"], index=v_idx(d.get("P_Vive"), ["Sí", "No"]))
-        p_salud = st.text_input("Estado de Salud Padre", value=d.get("P_Salud", ""))
-        p_ocupa = st.text_input("Ocupación Padre", value=d.get("P_Ocupa", ""))
+        p_nom = st.text_input("Nombre del Padre", value=d.get("P_Nom", ""))
+        p_edad = st.text_input("Edad del Padre", value=d.get("P_Edad", ""))
+        p_vive = st.selectbox("¿Vive? (Padre)", ["Sí", "No"], index=v_idx(d.get("P_Vive"), ["Sí", "No"]))
+        p_salud = st.text_input("Salud del Padre", value=d.get("P_Salud", ""))
+        p_ocupa = st.text_input("Ocupación del Padre", value=d.get("P_Ocupa", ""))
         p_rel = st.text_area("Relación y Castigos (Padre)", value=d.get("P_Rel", ""))
-    with col_m:
+    with col2:
         st.write("**DATOS DE LA MADRE**")
-        m_nom = st.text_input("Nombre Madre", value=d.get("M_Nom", ""))
-        m_edad = st.text_input("Edad Madre", value=d.get("M_Edad", ""))
-        m_vive = st.selectbox("¿Vive? ", ["Sí", "No"], index=v_idx(d.get("M_Vive"), ["Sí", "No"]))
-        m_salud = st.text_input("Estado de Salud Madre", value=d.get("M_Salud", ""))
-        m_ocupa = st.text_input("Ocupación Madre", value=d.get("M_Ocupa", ""))
+        m_nom = st.text_input("Nombre de la Madre", value=d.get("M_Nom", ""))
+        m_edad = st.text_input("Edad de la Madre", value=d.get("M_Edad", ""))
+        m_vive = st.selectbox("¿Vive? (Madre)", ["Sí", "No"], index=v_idx(d.get("M_Vive"), ["Sí", "No"]))
+        m_salud = st.text_input("Salud de la Madre", value=d.get("M_Salud", ""))
+        m_ocupa = st.text_input("Ocupación de la Madre", value=d.get("M_Ocupa", ""))
         m_rel = st.text_area("Relación y Castigos (Madre)", value=d.get("M_Rel", ""))
     
     st.write("---")
-    rel_padres = st.text_area("Relación entre los Padres (Dinámica de pareja)", value=d.get("Rel_Padres", ""))
-    social = st.text_area("Área Social (Amigos, Vecinos, Ambiente)", value=d.get("Social", ""))
+    rel_padres = st.text_area("¿Cómo era la relación entre su Padre y su Madre?", value=d.get("Rel_Padres", ""))
+    hermanos = st.text_input("Número de hermanos y lugar que ocupa", value=d.get("Hermanos", ""))
+    crianza = st.text_input("¿Quién lo crió?", value=d.get("Crianza", ""))
+    hist_fel = st.text_area("Historia feliz vivida en familia", value=d.get("Hist_Fel", ""))
+    social = st.text_area("Relación social (Amigos, vecinos, entorno)", value=d.get("Social", ""))
 
 with tabs[4]:
-    st.subheader("VIII-IX. DESARROLLO Y ESCUELA")
-    gateo = st.text_input("Edad Gateó", value=d.get("Gateo", ""))
-    camino = st.text_input("Edad Caminó", value=d.get("Camino", ""))
-    esfinter = st.text_input("Edad Control Esfínteres", value=d.get("Esfinter", ""))
-    esc_cond = st.text_area("Conducta y Rendimiento Escolar", value=d.get("Esc_Cond", ""))
+    st.subheader("VIII-IX. DESARROLLO Y EDUCACIÓN")
+    embarazo = st.text_input("Circunstancia Embarazo (Deseado/Reacción)", value=d.get("Embarazo", ""))
+    parto = st.text_input("Parto (Fórceps, incubadora, tiempo)", value=d.get("Parto", ""))
+    
+    c17, c18, c19, c20 = st.columns(4)
+    gateo = c17.text_input("Edad Gateó", value=d.get("Gateo", ""))
+    camino = c18.text_input("Edad Caminó", value=d.get("Camino", ""))
+    hablo = c19.text_input("Edad Habló", value=d.get("Hablo", ""))
+    esfinter = c20.text_input("Edad Esfínteres", value=d.get("Esfinter", ""))
+    
+    st.write("**Área Escolar**")
+    esc_edad = st.text_input("Edad inicio escuela", value=d.get("Esc_Edad", ""))
+    esc_dif = st.text_input("Materias dificultad", value=d.get("Esc_Dif", ""))
+    esc_cond = st.text_area("Conducta y rendimiento escolar", value=d.get("Esc_Cond", ""))
 
 with tabs[5]:
     st.subheader("X-XI. SEXUALIDAD Y PERSONALIDAD")
-    menarquia = st.text_input("Menarquia/Eyaculación", value=d.get("Menarquia", ""))
-    sex_opi = st.text_area("Opinión sobre Sexualidad/Matrimonio", value=d.get("Sex_Opi", ""))
-    pers_imp = st.text_input("¿Actos impulsivos? (¿Arrepentimiento?)", value=d.get("Pers_Imp", ""))
+    menarquia = st.text_input("Menarquia / Primera Eyaculación", value=d.get("Menarquia", ""))
+    sex_opi = st.text_area("Opinión Sexualidad, Matrimonio y Masturbación", value=d.get("Sex_Opi", ""))
+    sex_rel = st.text_input("Edad primera relación sexual", value=d.get("Sex_Rel", ""))
+    noviazgo = st.text_input("Edad primer noviazgo", value=d.get("Noviazgo", ""))
+    
+    pers_conf = st.text_input("¿Confía en las personas? (Celos, rencor)", value=d.get("Pers_Conf", ""))
+    pers_imp = st.text_input("¿Actos impulsivos? (¿Se arrepiente?)", value=d.get("Pers_Imp", ""))
 
 with tabs[6]:
-    st.subheader("XII. RESULTADOS DEL ANÁLISIS IA")
-    if st.button("🧠 GENERAR INFORME CLÍNICO"):
+    st.subheader("XII. ANÁLISIS, CONCLUSIONES Y RECOMENDACIONES")
+    if st.button("🧠 GENERAR ANÁLISIS E INFORME IA"):
         c_ia, r_ia, t_ia = motor_ia_dsp(motivo, check_vida)
         st.session_state["ia_concl"] = c_ia
         st.session_state["ia_recom"] = r_ia
         st.session_state["ia_tests"] = t_ia
 
-    # Estos campos ahora capturan lo generado por la IA
-    concl_f = st.text_area("Conclusiones", value=st.session_state.get("ia_concl", d.get("Conclusiones", "")))
+    analisis_prof = st.text_area("Análisis Clínico Profesional", value=d.get("Analisis", ""))
+    concl_f = st.text_area("Conclusiones Clínicas", value=st.session_state.get("ia_concl", d.get("Conclusiones", "")))
     recom_f = st.text_area("Recomendaciones de Seguimiento", value=st.session_state.get("ia_recom", d.get("Recomendaciones", "")))
-    tests_f = st.text_area("Tests Sugeridos y Enlaces", value=st.session_state.get("ia_tests", d.get("Tests", "")))
+    tests_f = st.text_area("Batería de Tests y Enlaces Sugeridos", value=st.session_state.get("ia_tests", d.get("Tests", "")))
     psicologo = st.text_input("Psicólogo Evaluador", value=d.get("Psicologo", ""))
 
-# --- 5. GUARDADO Y GENERACIÓN DE WORD ---
-if st.button("💾 GUARDAR Y DESCARGAR INFORME COMPLETO"):
-    if identidad and nombre:
-        # CONSOLIDACIÓN DE DATOS
+# --- 5. GUARDADO Y WORD ---
+if st.button("💾 GUARDAR Y GENERAR DOCUMENTO WORD"):
+    if id_pac and nom_pac:
         reg = {
-            "Identidad": identidad, "Nombre": nombre, "Edad": edad, "Motivo": motivo,
-            "Sueño": sueño, "Cefaleas": cefaleas, "Convulsiones": convulsiones, "Hosp": hosp,
-            "Check_Vida": str(check_vida), "P_Nom": p_nom, "P_Edad": p_edad, "P_Vive": p_vive,
-            "P_Salud": p_salud, "P_Ocupa": p_ocupa, "P_Rel": p_rel, "M_Nom": m_nom,
-            "M_Edad": m_edad, "M_Vive": m_vive, "M_Salud": m_salud, "M_Ocupa": m_ocupa,
-            "M_Rel": m_rel, "Rel_Padres": rel_padres, "Social": social, "Gateo": gateo,
-            "Camino": camino, "Esfinter": esfinter, "Esc_Cond": esc_cond, "Menarquia": menarquia,
-            "Sex_Opi": sex_opi, "Pers_Imp": pers_imp, "Conclusiones": concl_f,
+            "Identidad": id_pac, "Nombre": nom_pac, "F_Nac": f_nac, "Edad": edad, "Sexo": sexo,
+            "Estado_Civil": est_civil, "Nacionalidad": nacionalidad, "Ocupacion": ocupacion,
+            "Asignacion": asignacion, "Remitido": remitido, "Motivo": motivo, "Ant_Sit": ant_sit,
+            "Sueño": sueño, "Apetito": apetito, "Sed": sed, "Defec": defec, "Convulsiones": convulsiones,
+            "Cefaleas": cefaleas, "Resp": resp, "Infecciones": infec, "Alergias": alergias,
+            "Meds": meds, "Hosp": hosp, "Cirugias": cirugias, "Check_Vida": str(check_vida),
+            "P_Nom": p_nom, "P_Edad": p_edad, "P_Vive": p_vive, "P_Salud": p_salud, "P_Ocupa": p_ocupa,
+            "P_Rel": p_rel, "M_Nom": m_nom, "M_Edad": m_edad, "M_Vive": m_vive, "M_Salud": m_salud,
+            "M_Ocupa": m_ocupa, "M_Rel": m_rel, "Rel_Padres": rel_padres, "Hermanos": hermanos,
+            "Crianza": crianza, "Hist_Fel": hist_fel, "Social": social, "Embarazo": embarazo,
+            "Parto": parto, "Gateo": gateo, "Camino": camino, "Hablo": hablo, "Esfinter": esfinter,
+            "Esc_Edad": esc_edad, "Esc_Dif": esc_dif, "Esc_Cond": esc_cond, "Menarquia": menarquia,
+            "Sex_Opi": sex_opi, "Sex_Rel": sex_rel, "Noviazgo": noviazgo, "Pers_Conf": pers_conf,
+            "Pers_Imp": pers_imp, "Analisis": analisis_prof, "Conclusiones": concl_f,
             "Recomendaciones": recom_f, "Tests": tests_f, "Psicologo": psicologo, "Fecha": str(date.today())
         }
         guardar_db(reg)
         
-        # CREACIÓN DEL WORD INCLUYENDO RESULTADOS IA
         doc = Document()
-        doc.add_heading('INFORME PSICOLÓGICO - D.S.P. HONDURAS', 0)
+        doc.add_heading('PROTOCOLO CLÍNICO D.S.P. - HONDURAS', 0)
         
-        doc.add_heading('1. DATOS GENERALES', level=1)
-        doc.add_paragraph(f"Nombre: {nombre}\nID: {identidad}\nEvaluador: {psicologo}\nFecha: {date.today()}")
-        
-        doc.add_heading('2. RESULTADOS DEL ANÁLISIS E IA', level=1)
-        doc.add_paragraph(f"CONCLUSIONES:\n{concl_f}")
-        doc.add_paragraph(f"RECOMENDACIONES:\n{recom_f}")
-        doc.add_paragraph(f"BATERÍA DE TESTS:\n{tests_f}")
-        
-        doc.add_heading('3. ANTECEDENTES DETALLADOS', level=1)
-        for k, v in reg.items():
-            if k not in ["Conclusiones", "Recomendaciones", "Tests"]: # Evitar duplicar
-                doc.add_paragraph(f"{k}: {v}")
-        
-        buf = io.BytesIO(); doc.save(buf); buf.seek(0)
-        st.success("✅ Informe generado con éxito.")
-        st.download_button("📥 DESCARGAR INFORME (.DOCX)", buf, f"Informe_{identidad}.docx")
-    else:
-        st.error("Error: Debe completar Nombre e Identidad.")
+        # Primero Resultados IA
+        doc.add_heading('I. CONCLUSIONES Y RECOMENDACIONES (IA)', level=1)
+        doc.add_paragraph(f"CONCLUSIONES: {concl_f}")
+        doc
