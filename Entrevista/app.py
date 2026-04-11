@@ -5,12 +5,14 @@ import io
 from docx import Document
 from datetime import datetime, date, time
 
-# --- 1. CONFIGURACIÓN ---
-st.set_page_config(page_title="Sistema Integral D.S.P.", layout="wide")
-DB_FILE = "base_datos_completa_dsp.xlsx"
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="D.S.P. Honduras - Visión Completa", layout="wide")
 
-# Lista maestra de todas las columnas del protocolo oficial
-COLS_OFICIALES = [
+# Forzamos que el archivo de base de datos sea nuevo si el anterior da problemas
+DB_FILE = "base_datos_dsp_v2.xlsx"
+
+# Lista maestra de campos oficiales
+CAMPOS = [
     "Nombre", "Identidad", "Edad", "Lugar_Nacimiento", "Estado_Civil", "Religion", 
     "Ocupacion", "Grado_Militar", "Antigüedad", "Motivo_Consulta", "Sintomas", 
     "Enfermedades_Previas", "Operaciones", "Medicamentos", "Funciones_Organicas",
@@ -20,75 +22,73 @@ COLS_OFICIALES = [
 ]
 
 # --- 2. FUNCIONES DE DATOS ---
-def cargar_db():
+def cargar_datos():
     if not os.path.exists(DB_FILE):
-        return pd.DataFrame(columns=COLS_OFICIALES)
+        return pd.DataFrame(columns=CAMPOS)
     try:
         df = pd.read_excel(DB_FILE)
         df = df.astype(str).replace('nan', '')
-        # Asegurar que todas las columnas existan si el excel es viejo
-        for col in COLS_OFICIALES:
-            if col not in df.columns:
-                df[col] = ""
+        # Si faltan columnas por versiones viejas, las agregamos aquí
+        for c in CAMPOS:
+            if c not in df.columns:
+                df[c] = ""
         return df
     except:
-        return pd.DataFrame(columns=COLS_OFICIALES)
+        return pd.DataFrame(columns=CAMPOS)
 
-def guardar_en_db(datos):
-    df = cargar_db()
-    nuevo_reg = {k: str(v) for k, v in datos.items()}
-    if not df.empty and nuevo_reg["Nombre"] in df["Nombre"].values:
-        df = df[df["Nombre"] != nuevo_reg["Nombre"]]
-    df = pd.concat([df, pd.DataFrame([nuevo_reg])], ignore_index=True)
+def guardar_datos(datos_dict):
+    df = cargar_datos()
+    # Convertir todo a string para evitar errores de visualización
+    nuevo_registro = {k: str(v) for k, v in datos_dict.items()}
+    
+    if not df.empty and nuevo_registro["Nombre"] in df["Nombre"].values:
+        df = df[df["Nombre"] != nuevo_registro["Nombre"]]
+    
+    df = pd.concat([df, pd.DataFrame([nuevo_registro])], ignore_index=True)
     df.to_excel(DB_FILE, index=False)
 
-# --- 3. MOTOR DE IA (ESCANEA TODA LA ENTREVISTA) ---
-def motor_ia_avanzado(d):
-    # Unificamos toda la información para una lectura profunda
-    corpus = f"{d['Motivo_Consulta']} {d['Sintomas']} {d['Examen_Mental']} {d['Personalidad_Previa']} {d['Historia_Familiar']}".lower()
+# --- 3. MOTOR DE IA ---
+def analizar_ia(d):
+    texto_total = f"{d['Motivo_Consulta']} {d['Sintomas']} {d['Examen_Mental']} {d['Personalidad_Previa']}".lower()
     
-    psico_drive = "https://drive.google.com/drive/folders/1lrH7AKPKXOVeFkcc_EdO03E0Ar5k4wbv"
-    proy_drive = "https://drive.google.com/drive/folders/1yji6O5YIcYOjW1IG0fIhp4MJZgrcToys"
+    # Enlaces oficiales de tus recursos
+    p_drive = "https://drive.google.com/drive/folders/1lrH7AKPKXOVeFkcc_EdO03E0Ar5k4wbv"
     
-    res = {"diag": "Perfil estable.", "tests": f"16PF y Barsit: {psico_drive}", "plan": "Orientación psicológica."}
+    res = {"diag": "Estable", "tests": f"16PF: {p_drive}", "plan": "Seguimiento preventivo."}
 
-    # Lógica de detección de patrones
-    if any(x in corpus for x in ["morir", "suicid", "triste", "solo", "desesperanza", "vacío"]):
-        res = {
-            "diag": "SINTOMATOLOGÍA DEPRESIVA / ALTO RIESGO AUTOLÍTICO.",
-            "tests": f"MMPI-2, Escala de Beck y SCL-90-R: {psico_drive}",
-            "plan": "Psicoterapia Cognitivo-Conductual y activación de protocolo de seguridad."
-        }
-    elif any(x in corpus for x in ["ira", "golpe", "impulso", "enojo", "pelea", "arma", "agresivo"]):
-        res = {
-            "diag": "RASGOS DE IMPULSIVIDAD Y DIFICULTAD EN CONTROL DE AGRESIVIDAD.",
-            "tests": f"16PF (Q4), IPV y Test de la Figura Humana: {psico_drive}",
-            "plan": "Entrenamiento en manejo de ira y técnicas de desensibilización."
-        }
-    elif any(x in corpus for x in ["voces", "veo", "sombras", "paranoid", "miedo", "persecucion"]):
-        res = {
-            "diag": "INDICADORES DE PSICOSIS O ALTERACIÓN PERCEPTIVA.",
-            "tests": f"Batería Proyectiva Completa (HTP, Persona bajo la lluvia): {proy_drive}",
-            "plan": "Evaluación por Psiquiatría y contención clínica inmediata."
-        }
+    if any(x in texto_total for x in ["morir", "suicid", "triste", "solo"]):
+        res = {"diag": "RIESGO DEPRESIVO/SUICIDA", "tests": f"MMPI-2 y Beck: {p_drive}", "plan": "Intervención en crisis y TCC."}
+    elif any(x in texto_total for x in ["ira", "impulso", "pelea", "agresivo"]):
+        res = {"diag": "CONTROL DE IMPULSOS", "tests": f"IPV y 16PF: {p_drive}", "plan": "Manejo de ira."}
+    
     return res
 
-# --- 4. INTERFAZ ---
-st.title("🧠 Sistema de Evaluación Psicológica D.S.P.")
-db = cargar_db()
+# --- 4. INTERFAZ VISUAL ---
+st.title("🛡️ Sistema de Gestión Psicológica D.S.P.")
+st.markdown("---")
 
+df_actual = cargar_datos()
+
+# Sidebar para navegación
 with st.sidebar:
-    st.header("📂 Expedientes Actuales")
-    sel = st.selectbox("Seleccionar:", ["NUEVO REGISTRO"] + db["Nombre"].tolist())
-    p = db[db["Nombre"] == sel].iloc[0].to_dict() if sel != "NUEVO REGISTRO" else {c: "" for c in COLS_OFICIALES}
+    st.header("📂 Expedientes")
+    paciente_sel = st.selectbox("Buscar por Nombre:", ["NUEVO REGISTRO"] + df_actual["Nombre"].tolist())
+    p = df_actual[df_actual["Nombre"] == paciente_sel].iloc[0].to_dict() if paciente_sel != "NUEVO REGISTRO" else {c: "" for c in CAMPOS}
+    
+    if st.button("♻️ Limpiar Pantalla"):
+        st.rerun()
 
-# Organización por Pestañas Técnicas
-tabs = st.tabs(["I. Datos Generales", "II-V. Clínica", "VI-IX. Historia Personal", "X-XI. Examen y Personalidad", "📅 Citas y Seguimiento"])
+# Pestañas Principales (Si no ves alguna, revisa el zoom del navegador)
+tabs = st.tabs(["📋 Datos", "🩺 Clínica", "📖 Historia", "🧠 Examen y Personalidad", "📅 Citas"])
 
 with tabs[0]:
-    st.subheader("I. DATOS GENERALES Y MILITARES")
+    st.subheader("Información General")
     c1, c2 = st.columns(2)
-    nombre = c1.text_input("Nombre Completo", value=p.get("Nombre", ""))
-    identidad = c2.text_input("Identidad", value=p.get("Identidad", ""))
-    edad = c1.text_input("Edad", value=p.get("Edad", ""))
-    lugar = c2
+    nombre = c1.text_input("Nombre", value=p.get("Nombre", ""))
+    identidad = c2.text_input("ID", value=p.get("Identidad", ""))
+    grado = c1.text_input("Grado Militar", value=p.get("Grado_Militar", ""))
+    antigüedad = c2.text_input("Antigüedad", value=p.get("Antigüedad", ""))
+
+with tabs[1]:
+    st.subheader("Evaluación Clínica")
+    motivo = st.text_area("Motivo de Consulta", value=p.
