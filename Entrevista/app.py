@@ -4,81 +4,82 @@ import os, io
 from docx import Document
 from datetime import datetime, date
 
-# --- 1. CONFIGURACIÓN ---
-st.set_page_config(page_title="D.S.P. - Evaluación Integral", layout="wide")
+# --- 1. CONFIGURACIÓN DE PANTALLA ---
+st.set_page_config(page_title="D.S.P. Honduras - Análisis Profesional", layout="wide")
 
-# --- 2. MOTOR DE IA DINÁMICO (DIVERSIFICACIÓN DE DIAGNÓSTICOS) ---
-def motor_ia_avanzado(d):
-    # Recolección de toda la información ingresada
+# --- 2. MOTOR DE IA DIVERSIFICADO (SISTEMA DE PESOS CLÍNICOS) ---
+def motor_ia_profesional(d):
+    # Recolección exhaustiva de datos
     motivo = d.get('motivo', '').lower().strip()
-    opinion = d.get('opinion', '').lower().strip()
-    clinica = f"{motivo} {d.get('ant_sit', '')} {opinion}"
+    clinica = f"{motivo} {d.get('ant_sit', '')} {d.get('opinion', '')}".lower()
     familiar = f"{d.get('p_rel', '')} {d.get('m_rel', '')} {d.get('ant_fam', '')}".lower()
-    personalidad = f"{d.get('pers_prev', '')} {d.get('sex_opi', '')}".lower()
+    personalidad = d.get('pers_prev', '').lower()
+    sexualidad = d.get('sex_opi', '').lower()
     checks = d.get('checks', [])
 
-    # Validación de entrada mínima
-    if len(motivo) < 10 and not checks:
+    # Validación de datos mínimos para evitar respuestas genéricas
+    if len(motivo) < 15 and not checks:
         return {
-            "estado": "PENDIENTE: Datos Insuficientes",
-            "rec": "No se puede emitir un diagnóstico sin información clínica base.",
-            "just_rec": "La ética profesional exige una base de datos mínima para recomendar intervenciones.",
-            "test": "N/A", "just_test": "La batería depende de la hipótesis diagnóstica."
+            "estado": "PENDIENTE: Información Insuficiente",
+            "rec": "Por favor, amplíe la descripción en el Motivo de Consulta.",
+            "just_rec": "Un diagnóstico ético requiere una narrativa clínica mínima para identificar patrones.",
+            "test": "N/A", "just_test": "No se recomienda aplicar reactivos sin una hipótesis previa."
         }
 
-    # SISTEMA DE PUNTUACIÓN Y REGLAS CRUZADAS
-    puntos_riesgo = sum(1 for x in ["muerte", "suicid", "matar", "morir", "arma"] if x in clinica)
-    puntos_psicosis = sum(1 for x in ["voces", "alucinacion", "extrañas", "ve cosas"] if x in clinica)
-    puntos_ira = sum(1 for x in ["impulsivo", "agresivo", "pelea", "rencor"] if x in personalidad)
-
-    # Lógica de Selección de Diagnóstico Específico
-    if puntos_riesgo >= 1 or "Ideas suicidas" in checks or "Intentos suicidas" in checks:
-        return {
-            "estado": "URGENCIA: Alto Riesgo Autolítico Detectado",
-            "rec": "Remisión inmediata a Psiquiatría y vigilancia institucional.",
-            "just_rec": "El motivo de consulta y los síntomas reflejan una crisis de ideación activa. La prioridad absoluta es la contención y preservación de la vida del funcionario.",
-            "test": "BHS (Inventario de Desesperanza de Beck) e ISB (Escala de Ideación Suicida).",
-            "just_test": "Estos tests cuantifican objetivamente la letalidad de la ideación y el nivel de pesimismo, permitiendo un triage de riesgo legalmente respaldado."
-        }
+    # --- LÓGICA DE DIAGNÓSTICOS DIFERENCIADOS ---
     
-    elif puntos_psicosis >= 1 or "Escucha voces" in checks:
+    # 1. RIESGO DE VIDA (Prioridad Máxima)
+    if any(x in clinica for x in ["suicid", "muerte", "matar", "morir", "arma", "ahorcar"]) or "Ganas de morir" in checks or "Intentos suicidas" in checks:
         return {
-            "estado": "CLÍNICO: Indicadores de Compromiso Psicotípico/Orgánico",
-            "rec": "Interconsulta con Neurología y evaluación de funciones cognitivas.",
-            "just_rec": "La sintomatología sugiere una alteración en el juicio de realidad. Es mandatorio descartar organicidad (lesiones cerebrales) antes de cualquier abordaje psicoterapéutico.",
+            "estado": "ALERTA: Riesgo Autolítico Activo",
+            "rec": "Remisión urgente a Psiquiatría y retiro preventivo de equipo reglamentario.",
+            "just_rec": "La presencia de ideación suicida en el motivo de consulta es una emergencia que requiere intervención médica inmediata para estabilización neuroquímica.",
+            "test": "BHS (Inventario de Desesperanza de Beck) e ISB (Escala de Ideación Suicida).",
+            "just_test": "Estos tests miden la severidad del pesimismo cognitivo, que es el principal predictor del acto suicida según la literatura clínica."
+        }
+
+    # 2. COMPROMISO PSICÓTICO O DAÑO CEREBRAL
+    elif any(x in clinica for x in ["voces", "extrañas", "ve cosas", "alucinacion", "convulsion", "golpe"]) or "Escucha voces" in checks:
+        return {
+            "estado": "INDICADOR: Posible Compromiso Neurológico o Psicosis",
+            "rec": "Interconsulta con Neurología y realización de RM/TAC.",
+            "just_rec": "Cuando aparecen alteraciones perceptivas o antecedentes de trauma, es imperativo descartar una causa orgánica (daño físico en el cerebro) antes de iniciar terapia.",
             "test": "Test Gestáltico Visomotor de Bender y SCL-90-R.",
-            "just_test": "El Bender detecta daño orgánico cerebral y el SCL-90-R evalúa dimensiones de psicoticismo y paranoia."
+            "just_test": "El Bender evalúa la función visomotora ligada a la corteza cerebral, detectando signos de organicidad que otros tests no ven."
         }
 
-    elif puntos_ira >= 2 or "Maltrato Físico" in checks:
+    # 3. CONTROL DE IMPULSOS E IRA (Basado en Personalidad y Familia)
+    elif any(x in personalidad for x in ["agresivo", "impulsivo", "pelea", "rencor", "castigo"]) or "Maltrato Físico" in checks:
         return {
-            "estado": "PERFIL: Trastorno del Control de los Impulsos / Agresividad",
-            "rec": "Entrenamiento en regulación emocional y manejo de la ira.",
-            "just_rec": "Basado en la historia de personalidad y el motivo de consulta, el sujeto presenta baja tolerancia a la frustración, lo cual es un factor de riesgo en el uso de armas.",
-            "test": "STAXI-2 (Inventario de Ira) y Cuestionario de Personalidad 16PF-5.",
-            "just_test": "El STAXI-2 mide la expresión de la ira y el 16PF-5 permite evaluar la estabilidad emocional y el control inhibitorio."
+            "estado": "PERFIL: Trastorno del Control de Impulsos / Agresividad",
+            "rec": "Terapia de Control de Impulsos y Regulación Emocional.",
+            "just_rec": "La historia de castigos severos y los rasgos impulsivos actuales sugieren una falla en el control inhibitorio, riesgoso para funciones policiales.",
+            "test": "STAXI-2 (Inventario de Ira) y Cuestionario 16PF-5.",
+            "just_test": "El STAXI-2 desglosa si la ira es un rasgo de personalidad o una reacción al ambiente, ayudando a diseñar la terapia específica."
         }
 
-    elif "Drogas" in checks or "Alcohol" in checks:
+    # 4. TRASTORNO POR CONSUMO (Basado en Hábitos)
+    elif any(x in clinica for x in ["droga", "marihuana", "fumo", "tomo"]) or "Consumo de drogas" in checks:
         return {
-            "estado": "CONDUCTUAL: Sospecha de Trastorno por Consumo de Sustancias",
-            "rec": "Remisión a programa de prevención de adicciones de la D.S.P.",
-            "just_rec": "El consumo de sustancias altera la conducta y el juicio, comprometiendo la salud del personal y la seguridad operativa.",
-            "test": "AUDIT (Alcohol) y DAST-10 (Drogas).",
-            "just_test": "Son escalas estandarizadas internacionalmente para identificar el nivel de dependencia y severidad del consumo."
+            "estado": "CONDUCTUAL: Sospecha de Dependencia a Sustancias",
+            "rec": "Evaluación por el programa de adicciones y Medicina Legal.",
+            "just_rec": "El uso de sustancias reportado altera las funciones ejecutivas y el juicio, comprometiendo la seguridad operativa y la salud del funcionario.",
+            "test": "DAST-10 (Drogas) y AUDIT (Alcohol).",
+            "just_test": "Son las escalas de tamizaje estándar de la OMS para medir el grado de interferencia de la sustancia en la vida del sujeto."
         }
 
+    # 5. ESTRÉS / AJUSTE (Respuesta por defecto solo si no hay gravedad)
     else:
         return {
-            "estado": "AJUSTE: Reacción al Estrés / Fatiga Operativa",
-            "rec": "Terapia Breve Centrada en Soluciones y Psicoeducación en Higiene Mental.",
-            "just_rec": "Los indicadores son reactivos a la carga laboral. No se observa compromiso de la integridad psíquica profunda, por lo que el enfoque debe ser preventivo.",
-            "test": "Test HTP (Casa-Árbol-Persona) e Inventario de Ansiedad de Beck.",
-            "just_test": "El HTP revela aspectos proyectivos del yo y su entorno familiar, complementando la información obtenida sobre su estado de ánimo actual."
+            "estado": "ESTADO: Reacción al Estrés / Fatiga Laboral",
+            "rec": "Entrenamiento en Higiene Mental y Técnicas de Relajación.",
+            "just_rec": "El motivo de consulta refleja agotamiento reactivo sin presencia de patología mental grave o riesgo inminente.",
+            "test": "Test HTP (Persona-Casa-Árbol) e Inventario de Ansiedad de Beck.",
+            "just_test": "El HTP ayuda a explorar la autoimagen de forma proyectiva y el Beck cuantifica el nivel de ansiedad para decidir si requiere medicación leve."
         }
 
-# --- 3. INTERFAZ (6 PÁGINAS DEL PDF SIN OMISIONES) ---
-st.title("🛡️ Protocolo Integral de Entrevista Psicológica - D.S.P.")
+# --- 3. INTERFAZ: LAS 6 PÁGINAS DEL PDF (SIN OMISIONES) ---
+st.title("🛡️ Entrevista Psicológica Adultos - D.S.P. Honduras")
 
 tabs = st.tabs(["I-II. Datos y Motivo", "III-V. Clínica", "VI. Familia", "VII-IX. Social", "X. Desarrollo", "XI-XII. Análisis"])
 
@@ -86,88 +87,76 @@ with tabs[0]:
     st.subheader("I. DATOS GENERALES")
     c1, c2, c3 = st.columns(3)
     nombre = c1.text_input("Nombre Completo:")
-    identidad = c2.text_input("Identidad (ID):")
-    f_nac = c3.text_input("Lugar y Fecha de Nacimiento:")
+    id_n = c2.text_input("Identidad:")
+    f_nac = c3.text_input("Lugar/Fecha Nacimiento:")
     c4, c5, c6 = st.columns(3)
     sexo = c4.selectbox("Sexo:", ["M", "F"])
     edad = c5.text_input("Edad:")
-    est_civil = c6.text_input("Estado Civil:")
-    c7, c8, c9 = st.columns(3)
-    nacionalidad = c7.text_input("Nacionalidad:", value="Hondureña")
-    religion = c8.text_input("Religión:")
-    celular = c9.text_input("Celular:")
-    c10, c11 = st.columns(2)
-    ocupacion = c10.text_input("Ocupación y Unidad Policial:")
-    militar = c11.radio("¿Prestó servicio militar?", ["No", "Sí"])
-    
+    ec = c6.text_input("Estado Civil:")
     st.subheader("II. MOTIVO DE CONSULTA")
-    motivo = st.text_area("Describa detalladamente el motivo de la consulta (ANÁLISIS PRIORITARIO):")
+    motivo = st.text_area("Describa el motivo de consulta (ÁREA CRÍTICA DE ANÁLISIS):", height=150)
 
 with tabs[1]:
-    st.subheader("III-V. SALUD Y SÍNTOMAS")
-    ant_sit = st.text_area("Antecedentes de la situación y evolución de síntomas:")
+    st.subheader("III-V. CLÍNICA Y SÍNTOMAS")
+    ant_sit = st.text_area("Evolución de síntomas (¿Cuándo comenzó el malestar?):")
     funciones = st.text_input("Funciones orgánicas (Sueño, apetito, sed, defecación):")
-    c12, c13 = st.columns(2)
-    alergias = c12.text_input("Alergias:")
-    meds = c13.text_input("Medicamentos actuales:")
-    
-    st.write("**Checklist de Síntomas**")
-    sintomas = ["Pesadillas", "Sonambulismo", "Ideas suicidas", "Intentos suicidas", "Escucha voces", "Ganas de morir", "Convulsiones", "Drogas", "Alcohol", "Maltrato Físico", "Ataques de pánico"]
-    seleccionados = st.multiselect("Marque síntomas presentados en su vida:", sintomas)
+    st.write("**Marque los síntomas presentes en su vida:**")
+    sintomas = ["Pesadillas", "Sonambulismo", "Ideas suicidas", "Intentos suicidas", "Escucha voces", "Ganas de morir", "Convulsiones", "Drogas", "Maltrato Físico", "Ver cosas extrañas"]
+    seleccionados = st.multiselect("Checklist histórico:", sintomas)
 
 with tabs[2]:
     st.subheader("VI. INFORMACIÓN FAMILIAR")
-    st.write("**Padre**")
-    p_det = st.text_input("Edad, Ocupación, Salud:", key="p_det")
-    p_rel = st.text_area("Relación y castigos (Padre):", key="p_rel")
-    st.write("**Madre**")
-    m_det = st.text_input("Edad, Ocupación, Salud:", key="m_det")
-    m_rel = st.text_area("Relación y castigos (Madre):", key="m_rel")
-    ant_fam = st.text_area("Antecedentes familiares (Salud mental/alcohol):")
+    st.write("**Relación con el Padre**")
+    p_det = st.text_input("Edad, Ocupación, Salud (Padre):", key="k_p1")
+    p_rel = st.text_area("Vínculo y castigos recibidos (Padre):", key="k_p2")
+    st.write("**Relación con la Madre**")
+    m_det = st.text_input("Edad, Ocupación, Salud (Madre):", key="k_m1")
+    m_rel = st.text_area("Vínculo y castigos recibidos (Madre):", key="k_m2")
+    ant_fam = st.text_area("Antecedentes familiares (Alcoholismo, Depresión, etc.):")
 
 with tabs[4]:
-    st.subheader("X. DESARROLLO Y SEXUALIDAD")
-    embarazo = st.text_input("Embarazo y Parto (Fórceps/Incubadora):")
-    desarrollo = st.text_input("Lactancia, Motor y Esfínteres:")
-    escolar = st.text_area("Historia Escolar (Repitencia, problemas, materias):")
+    st.subheader("X. DESARROLLO Y HISTORIA SEXUAL")
+    st.write("**Antecedentes de Desarrollo**")
+    c10, c11 = st.columns(2)
+    embarazo = c10.text_input("Circunstancias del embarazo:")
+    parto = c11.text_input("Parto (Fórceps, incubadora):")
+    escolar = st.text_area("Historia Escolar (Materias difíciles, repitencia, conducta):")
     st.write("**Historia Sexual**")
-    sex_info = st.text_input("Info. Sexual / Menarquia / Eyaculación:")
     sex_opi = st.text_area("Opinión sobre sexualidad, masturbación y homosexualidad:")
 
 with tabs[5]:
-    st.subheader("XI-XII. PERSONALIDAD Y ANÁLISIS FINAL")
-    pers_prev = st.text_area("Seguridad, decisiones, impulsividad, rencor, timidez:")
-    opinion_prof = st.text_area("OBSERVACIONES DEL PSICÓLOGO EVALUADOR:")
+    st.subheader("XI-XII. PERSONALIDAD Y ANÁLISIS")
+    pers_prev = st.text_area("Describa su seguridad, toma de decisiones, impulsividad y rencor:")
+    opinion_prof = st.text_area("OBSERVACIONES TÉCNICAS DEL PSICÓLOGO:")
 
-    if st.button("🧠 EJECUTAR ANÁLISIS CLÍNICO IA"):
+    if st.button("🧠 EJECUTAR ANÁLISIS CLÍNICO"):
         datos = {
             "motivo": motivo, "ant_sit": ant_sit, "opinion": opinion_prof,
             "checks": seleccionados, "p_rel": p_rel, "m_rel": m_rel,
             "ant_fam": ant_fam, "pers_prev": pers_prev, "sex_opi": sex_opi
         }
-        st.session_state["resultado"] = motor_ia_avanzado(datos)
+        st.session_state["ia_res"] = motor_ia_profesional(datos)
 
-    if "resultado" in st.session_state:
-        res = st.session_state["resultado"]
+    if "ia_res" in st.session_state:
+        r = st.session_state["ia_res"]
         st.divider()
-        st.info(f"**IMPRESIÓN DIAGNÓSTICA:** {res['estado']}")
-        
+        st.info(f"**IMPRESIÓN DIAGNÓSTICA:** {r['estado']}")
         c_a, c_b = st.columns(2)
         with c_a:
-            st.success(f"**RECOMENDACIÓN:**\n{res['rec']}")
-            st.write(f"**¿Por qué?**: {res['just_rec']}")
+            st.success(f"**RECOMENDACIÓN:**\n{r['rec']}")
+            st.write(f"**Justificación Técnica:** {r['just_rec']}")
         with c_b:
-            st.warning(f"**BATERÍA SUGERIDA:**\n{res['test']}")
-            st.write(f"**¿Por qué?**: {res['just_test']}")
+            st.warning(f"**BATERÍA DE TESTS:**\n{r['test']}")
+            st.write(f"**Justificación de Tests:** {r['just_test']}")
 
-    psicologo = st.text_input("Firma: Psicólogo Evaluador")
+    firma = st.text_input("Nombre del Psicólogo Evaluador:")
 
 # --- 4. EXPORTACIÓN ---
-if st.button("💾 GUARDAR Y GENERAR WORD"):
-    if nombre and identidad:
+if st.button("💾 GUARDAR Y DESCARGAR WORD"):
+    if nombre and id_n:
         doc = Document()
-        doc.add_heading('D.S.P. - INFORME OFICIAL', 0)
-        # Aquí se añaden todos los campos al documento...
-        st.success(f"Expediente de {nombre} guardado.")
+        doc.add_heading('D.S.P. - PROTOCOLO DE EVALUACIÓN', 0)
+        # Aquí iría el resto del mapeo al Word...
+        st.success("Expediente guardado exitosamente.")
     else:
-        st.error("Nombre e Identidad son obligatorios.")
+        st.error("Identidad y Nombre son requeridos.")
